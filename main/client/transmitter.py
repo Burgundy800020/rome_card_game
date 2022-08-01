@@ -2,7 +2,7 @@ import socket
 from _thread import *
 
 class Transmitter(socket.socket):
-    host = "192.168.1.237"
+    host = "192.168.1.6"
 
     def __init__(self):
         #connect to server
@@ -11,13 +11,20 @@ class Transmitter(socket.socket):
 
     def new_room(self):
         self.send(b"ADD")
-        ip, port = self.parse_room(self.recv(36))
+        response = self.recv(32).decode()
+
+        if response == "Low Bandwidth":
+            return
+
+        ip, port = self.parse_room(response)
+        print(f"Connected to {ip} via port {port}")
     
-    def parse_room(self, info:bytes):
-        #b"192.168.1.237:1233"
-        info = info.decode()
+    def parse_room(self, info:str):
+        #b"192.168.1.237:1233"s
+        info = info
         ip, port = info.split(":")
         return ip, int(port)
 
 if __name__ == "__main__":
     t = Transmitter()
+    t.new_room()

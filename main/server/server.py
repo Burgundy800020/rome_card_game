@@ -44,7 +44,7 @@ class Server(socket.socket):
                 continue
     
     def open_room(self):
-        for i in range(65536, 1):
+        for i in range(1, 65536):
             if i not in self.all_rooms:
                 port = i
                 break
@@ -56,7 +56,7 @@ class Server(socket.socket):
 class Room(socket.socket):
     def __init__(self, port):
         self.url, self.open_port = parse_url(ngrok.connect(port, "tcp").public_url)
-        super(Server, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
+        super(Room, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
         self.port = port
         self.bind(("", port))
         self.listen()
@@ -66,7 +66,9 @@ class Room(socket.socket):
     def accept_connexion(self):
         while True:
             connexion, address = self.accept()
-    
-
 
 server = Server()
+
+#Prevent main thread from exiting
+if __name__ == "__main__":
+    while True:input()

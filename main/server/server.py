@@ -33,15 +33,26 @@ class Server(socket.socket):
 
                 if not message:
                     connexion.close()
+                
+                #break down messages into keywords
+                message = message.split(" ")
 
-                if message == "ADD":
-                    url, port = self.open_room()
-                    if url==None and port==None:
+                if message[0] == "ADD":
+                    port = self.open_room()
+                    if port==None:
                         connexion.send(b"Low Bandwidth")
                     else:
-                        connexion.send(f"{url}:{port}".encode())
+                        connexion.send(f"{port}".encode())
+                
+                elif message[0] == "ID":
+                    url, open_port = self.get_room_id(int(message[1]))
+                    connexion.send(f"{url}:{open_port}".encode())
             except:
                 continue
+    
+    def get_room_id(self, port):
+        room = self.all_rooms[port]
+        return room.url, room.open_port
     
     def open_room(self):
         for i in range(1, 65536):
@@ -49,9 +60,15 @@ class Server(socket.socket):
                 port = i
                 break
         else:# no more bandwidth available for another room
-            return None, None
+            return
         self.all_rooms[port] = Room(port)
-        return self.url, self.open_port
+        return port
+    
+    def close_room(self, port):
+        room = self.all_rooms[port]
+        room.close_room()
+        ngrok.disconnect(get_url(room.url, room.open_port))
+        del self.all_rooms[port]
 
 class Room(socket.socket):
     def __init__(self, port):
@@ -63,9 +80,26 @@ class Room(socket.socket):
 
         start_new_thread(self.accept_connexion, ())
 
+        self.clients = []
+
     def accept_connexion(self):
         while True:
             connexion, address = self.accept()
+            self.clients.append(connexion)
+            start_new_thread(self.listen_client, (connexion, address))
+        
+    def listen_client(self, connexion, address):
+        while True:
+            message = connexion.recv(32).decode()
+    
+    def remove_client(self, connexion):
+        connexion.close()
+        self.clients.remove(connexion)
+    
+    def close_room(self):
+        while self.clients:
+            self.remove_client(self.clients[0])
+        self.close()
 
 server = Server()
 

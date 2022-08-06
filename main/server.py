@@ -21,6 +21,8 @@ class Room:
         #cannot add more than 4 players
         if len(self.clients) < 4:
             self.clients.append(sid)
+        else:
+            return
         
         #assign role and character to player
         role = self.game.generateRole()

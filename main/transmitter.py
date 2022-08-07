@@ -31,13 +31,13 @@ class Transmitter:
 
         return response #return room's id
     
-    def joinRoom(self, id):
+    def joinRoom(self, userName, id):
         #send joining request to server
-        sio.emit("joinRoom", data={"id":id})
+        sio.emit("joinRoom", data={"userName":userName, "id":id})
         self.room.join(id)
 
 if __name__ == "__main__":
     t = Transmitter()
     id = t.createRoom()
-    t.joinRoom(id)
+    t.joinRoom("Crassus", id)
     print(id)

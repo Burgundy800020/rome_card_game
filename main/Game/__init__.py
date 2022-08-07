@@ -11,7 +11,7 @@ class GameManager:
         self.remEnemies = Characters.enemies.copy(); shuffle(self.remEnemies)
     
     def reset(self):
-        pass;            
+        pass   
 
     def addPlayer(self, role, character):
         self.players.append(character(self, role))

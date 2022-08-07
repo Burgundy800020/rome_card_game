@@ -17,9 +17,9 @@ class Room:
         #initialize game instance
         self.game = Game.GameManager()
     
-    def addClient(self, sid):
-        #cannot add more than 4 players
-        if len(self.clients) < 4:
+    def addClient(self, userName, sid):
+        #cannot add more than 2 players
+        if len(self.clients) < 2:
             self.clients.append(sid)
         else:
             return
@@ -54,8 +54,9 @@ def createRoom():
 def joinRoom(data):
     #add connection to server's room list
     id = flask.request.form["id"]
+    userName = flask.request.form["userName"]
     sid = flask.requests.sid
-    allRooms[id].addClient(sid)
+    allRooms[id].addClient(userName, sid)
 
 if __name__ == "__main__":
     socketIO.run(server)

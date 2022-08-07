@@ -58,4 +58,4 @@ def joinRoom(data):
     allRooms[id].addClient(sid)
 
 if __name__ == "__main__":
-    socketIO.run(server, port=3000)
+    socketIO.run(server)

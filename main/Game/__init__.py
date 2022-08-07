@@ -1,6 +1,6 @@
 from random import choices, shuffle
-#from ..Game import Card, Characters
-import Card, Characters
+from . import Card, Characters
+#import Card, Characters
 
 class GameManager:
     def __init__(self):

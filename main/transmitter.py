@@ -2,6 +2,7 @@ import threading
 import socketio, requests
 
 SERVER = "http://127.0.0.1:5000"
+#SERVER = "http://roman-card-game.herokuapp.com/"
 sio = socketio.Client()
 sio.connect(SERVER)
 

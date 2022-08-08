@@ -9,6 +9,7 @@ socketIO = flask_socketio.SocketIO(server)
 class Room:
     def __init__(self, id):
         self.id = id
+        self.isVisible = False #room visibility for players looking for an opponent
         self.clients = []
 
         #listen for messages from client
@@ -23,10 +24,6 @@ class Room:
             self.clients.append(sid)
         else:
             return
-        
-        #assign role and character to player
-        role = self.game.generateRole()
-        self.send({"role":str(role).encode()}, sid)
     
     def send(self, data, sid):
         socketIO.emit(f"{self.id}/fromClient", data=data, room=sid)
@@ -50,7 +47,13 @@ def createRoom():
     allRooms[id] = Room(id)
     return id
 
-@socketIO.on("joinRoom")
+@server.route("/makeRoomVisible")
+def makeRoomVisible():
+    #make room visible for users looking for an opponent
+    id = flask.request.form["id"]
+    allRooms[id].isVisible = True
+
+@socketIO.on("/joinRoom")
 def joinRoom(data):
     #add connection to server's room list
     id = flask.request.form["id"]

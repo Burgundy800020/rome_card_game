@@ -1,7 +1,7 @@
 import threading
 import socketio, requests
 
-SERVER = "https://127.0.0.1:5000"
+SERVER = "http://127.0.0.1:5000"
 sio = socketio.Client()
 sio.connect(SERVER)
 

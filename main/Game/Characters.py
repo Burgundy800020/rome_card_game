@@ -18,7 +18,8 @@ class Player:
     
     def resetCount(self):
         #reset counters for item cards and strategy cards played during a turn
-        self.itemPlayed = self.strategyPlayed = 0
+        self.itemPlayed = self.PoliticalPlayed = 0
+        self.itemLimit = self.PoliticalLimit = 1
 
     def playTurn(self):
         self.preturn()
@@ -60,10 +61,12 @@ class Player:
         #check available cards during play phase
         for card in self.hand:
             
-            if card.type == 
-            
+            if card.type == c.ITEM:
 
-                if isinstance(card, c.Shield):
+                if self.itemPlayed >= self.itemLimit:
+                    card.available = False
+
+                elif isinstance(card, c.Shield):
                     card.available = True if any([isinstance(unit, c.Legionary) for unit in self.units]) else False
                 
                 elif isinstance(card, c.Horse):
@@ -71,18 +74,55 @@ class Player:
 
                 elif isinstance(card, c.Arrows):
                     card.available = True if any([isinstance(unit, c.Archery) for unit in self.units]) else False
+                
+                elif isinstance(card, c.Ration):
+                    card.available = True
 
-            
+                elif isinstance(card, c.Aquilifer):
+                    card.available = True if len(self.units) else False
 
-            
+            elif card.type == c.UNIT:
+                card.avaiable = False if len(self.units) >= 3 else True
+
+        
+            elif card.type == c.MILITARY:
+
+
+                if isinstance(card, c.Testudo):
+                    card.available = False
+
+                elif isinstance(card, c.Camp):
+                    card.available = True if len(self.units) else False
+
+                else:
+                    card.available = True
+
+            else: #remaining card type: political
+                if self.politicalPlayed >= self.politicalLimit:
+                    card.available = False
+
+                elif isinstance(card, c.Recrutement):
+                    card.available = False if len(self.units) >= 3 else True
+
+                elif isinstance(card, c.Rebellion):
+                    card.available = True if len(self.opp.units) and len(self.units) < 3 else False
+
+                elif isinstance(card, c.Veto):
+                    card.available = False
+
+                else:
+                    card.available = True
+
 
 class Crassus(Player):
 
     name = "Marcus Licinius Crassus"
 
-    def __init__(self, game, role):
-        super(Crassus, self).__init__(game, role)
+    def __init__(self, game):
+        super(Crassus, self).__init__(game)
         
+    def drawphase(self):
+        self.draw(3)
 
 
 class Caesar(Player):
@@ -90,8 +130,8 @@ class Caesar(Player):
     name = "Caius Julius Caesar" 
 
 
-    def __init__(self, game, role):
-        super(Caesar, self).__init__(game, role)
+    def __init__(self, game):
+        super(Caesar, self).__init__(game)
 
 
 
@@ -99,23 +139,23 @@ class Cicero(Player):
 
     name = "Marcus Tullius Cicero"
 
-    def __init__(self, game, role):
-        super(Cicero, self).__init__(game, role)
+    def __init__(self, game):
+        super(Cicero, self).__init__(game)
 
 
 class Pompeius(Player):
     
     name = "Gnaeus Pompeius Magnus" 
 
-    def __init__(self, game, role):
-        super(Pompeius, self).__init__(game, role)
+    def __init__(self, game):
+        super(Pompeius, self).__init__(game)
 
 
 class Hannibal(Player):
     
     name = "Hannibal Barca" 
 
-    def __init__(self, game, role):
-        super(Pompeius, self).__init__(game, role)
+    def __init__(self, game):
+        super(Pompeius, self).__init__(game)
 
 romans = [Crassus, Caesar, Cicero, Pompeius, Hannibal]

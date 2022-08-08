@@ -22,11 +22,14 @@ class Room:
         #cannot add more than 2 players
         if len(self.clients) < 2:
             self.clients.append(sid)
+
+            #send 2 character choices to player
+            self.send({"characters":self.game.generateCharacters}, sid)
         else:
             return
     
     def send(self, data, sid):
-        socketIO.emit(f"{self.id}/fromClient", data=data, room=sid)
+        socketIO.emit(f"{self.id}/fromServer", data=data, room=sid)
     
     def receive(self, data):
         pass
@@ -34,6 +37,10 @@ class Room:
 #-----------------SERVER-----------------
 allRooms = {}
 generateID = lambda: str(uuid.uuid1())
+
+@server.route("/")
+def default():
+    return "<h1>Roman-Card-Game Server</h1>"
 
 @server.route("/createRoom")
 def createRoom():

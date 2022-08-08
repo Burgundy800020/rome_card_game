@@ -9,15 +9,16 @@ sio.connect(SERVER)
 class Room:
     def __init__(self):
         self.id = ""
-        self.listenProcess = None
     
     def join(self, id):
         self.id = id
-        self.listenProcess = threading.Thread(target=sio.on(f"{id}/fromServer"), args=(self.listen, ))
-        self.listenProcess.start()
+        threading.Thread(target=sio.on(f"{id}/fromServer"), args=(self.listen, )).start()
     
     def listen(self, data):
         pass
+
+    def send(self, data):
+        sio.emit(f"{self.id}/fromServer", data=data)
 
 class Transmitter:
     def __init__(self):
@@ -36,6 +37,9 @@ class Transmitter:
         #send joining request to server
         sio.emit("joinRoom", data={"userName":userName, "id":id})
         self.room.join(id)
+    
+    def drawCard(self, n):
+        pass
 
 if __name__ == "__main__":
     t = Transmitter()

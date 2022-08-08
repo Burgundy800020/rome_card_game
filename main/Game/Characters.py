@@ -1,20 +1,24 @@
-CONSUL = 0
-GENERAL = 1
-REBEL = 2
-ENEMY = 3
-
-allRoles = [CONSUL, GENERAL, REBEL, ENEMY]
+from random import choices, shuffle
+import Card as c
 
 class Player:
-    def __init__(self, game, role):
+    def __init__(self, game):
         self.game = game
-        self.hp = 6
+        self.opp = None
+        self.hp = 9
         self.hand = []
         self.units = []
         self.name = ""
-        self.role = role
         
-        self.playing = False
+        self.deck = [c.Shield, c.Horse, c.Arrows]
+        self.weights = [1,1,1]
+
+        #counters
+        self.resetCount()
+    
+    def resetCount(self):
+        #reset counters for item cards and strategy cards played during a turn
+        self.itemPlayed = self.strategyPlayed = 0
 
     def playTurn(self):
         self.preturn()
@@ -29,11 +33,11 @@ class Player:
         pass
 
     def drawphase(self):
-        self.hand.addAll(self.game.generateCard(2))
-
+        self.draw(2)
 
     def playphase(self):
-        pass
+        while True:
+            pass
 
     def discardphase(self):
         pass
@@ -42,8 +46,35 @@ class Player:
         pass
 
     def postturn(self):
-        pass
+        self.resetCount()
+    
+    #basic actions
 
+    def draw(self,n):
+        for i in range(n):
+            card = choices(self.deck, weights=self.weights, k=1).pop()
+            self.hand.append(card)
+    
+
+    def checkAvailableCards(self):
+        #check available cards during play phase
+        for card in self.hand:
+            
+            if card.type == 
+            
+
+                if isinstance(card, c.Shield):
+                    card.available = True if any([isinstance(unit, c.Legionary) for unit in self.units]) else False
+                
+                elif isinstance(card, c.Horse):
+                    card.available = True if any([isinstance(unit, c.Cavalry) for unit in self.units]) else False
+
+                elif isinstance(card, c.Arrows):
+                    card.available = True if any([isinstance(unit, c.Archery) for unit in self.units]) else False
+
+            
+
+            
 
 class Crassus(Player):
 
@@ -87,5 +118,4 @@ class Hannibal(Player):
     def __init__(self, game, role):
         super(Pompeius, self).__init__(game, role)
 
-romans = [Crassus, Caesar, Cicero, Pompeius]
-enemies = [Hannibal]
+romans = [Crassus, Caesar, Cicero, Pompeius, Hannibal]

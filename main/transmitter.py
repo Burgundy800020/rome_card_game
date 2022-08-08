@@ -12,13 +12,16 @@ class Room:
     
     def join(self, id):
         self.id = id
-        threading.Thread(target=sio.on(f"{id}/fromServer"), args=(self.listen, )).start()
+        threading.Thread(target=sio.on(f"{id}/getCharacterChoices"), args=(self.getCharacterChoices, )).start()
     
-    def listen(self, data):
-        pass
-
-    def send(self, data):
-        sio.emit(f"{self.id}/fromServer", data=data)
+    def getCharacterChoices(self, data):
+        print(data["characters"])
+    
+    def send(self, route, data):
+        sio.emit(f"{self.id}/{route}", data=data)
+    
+    def drawCard(self, n):
+        self.send("drawCard", data={"n":n})
 
 class Transmitter:
     def __init__(self):
@@ -35,14 +38,12 @@ class Transmitter:
     
     def joinRoom(self, userName, id):
         #send joining request to server
-        sio.emit("joinRoom", data={"userName":userName, "id":id})
         self.room.join(id)
-    
-    def drawCard(self, n):
-        pass
-
+        sio.emit("joinRoom", data={"userName":userName, "id":id})
+        
 if __name__ == "__main__":
     t = Transmitter()
     id = t.createRoom()
     t.joinRoom("Crassus", id)
     print(id)
+    print(t.room.drawCard(2))

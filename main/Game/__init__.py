@@ -11,13 +11,13 @@ class GameManager:
         pass   
 
     def addPlayer(self, character):
-        self.players.append(character(self))
+        self.players.append(character())
     
     def generateCharacters(self):
         #take two first characters (and remove them) from list
         characterChoices = self.remRomans[:2]
         self.remRomans = self.remRomans[2:]
-        return characterChoices
+        return [character.name for character in characterChoices]
 
 if __name__ == "__main__":
     g = GameManager()

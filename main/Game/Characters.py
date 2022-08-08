@@ -1,5 +1,6 @@
 from random import choices, shuffle
-import Card as c
+from . import Card as c
+#import Card as c
 
 class Player:
     def __init__(self, game):
@@ -14,12 +15,13 @@ class Player:
         self.weights = [1,1,1]
 
         #counters
+        self.itemLimit = self.PoliticalLimit = 1
         self.resetCount()
     
     def resetCount(self):
         #reset counters for item cards and strategy cards played during a turn
         self.itemPlayed = self.PoliticalPlayed = 0
-        self.itemLimit = self.PoliticalLimit = 1
+        
 
     def playTurn(self):
         self.preturn()
@@ -113,6 +115,8 @@ class Player:
                 else:
                     card.available = True
 
+    def toJson(self):
+        return {"name":self.name}
 
 class Crassus(Player):
 

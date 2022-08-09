@@ -3,6 +3,7 @@ import flask, flask_socketio
 import Game
 
 #initialize flask server and socket units websocket
+#server deployed to -> https://roman-card-game.herokuapp.com/
 server = flask.Flask(__name__)
 socketIO = flask_socketio.SocketIO(server)
 

@@ -46,7 +46,7 @@ def default():
 
 @server.route("/createRoom")
 def createRoom():
-    if len(allRooms) >= 100:return "FULL" #no more space for another room
+    if len(allRooms) >= 100:return "FULL" #no more space for another room 
 
     #generate random string as room number, for example
     #741f8bd1-13a6-11ed-86a8-b05adaee0887

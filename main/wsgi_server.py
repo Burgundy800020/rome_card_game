@@ -8,9 +8,9 @@ server = flask.Flask(__name__)
 socketIO = flask_socketio.SocketIO(server)
 
 class Room:
-    def __init__(self, id):
+    def __init__(self, id, public=False):
         self.id = id
-        self.isVisible = False #room visibility for players looking for an opponent
+        self.public = public #room visibility for players looking for an opponent
         self.clients = []
 
         
@@ -46,19 +46,17 @@ def default():
 
 @server.route("/createRoom")
 def createRoom():
-    if len(allRooms) >= 10:return "FULL" #no more space for another room
+    if len(allRooms) >= 100:return "FULL" #no more space for another room
 
     #generate random string as room number, for example
     #741f8bd1-13a6-11ed-86a8-b05adaee0887
     id = generateID()
-    allRooms[id] = Room(id)
+    allRooms[id] = Room(id, public=flask.request.data.form["public"])
     return id
 
-@server.route("/makeRoomVisible")
-def makeRoomVisible():
-    #make room visible for users looking for an opponent
-    id = flask.request.form["id"]
-    allRooms[id].isVisible = True
+@server.route("/clean")
+def clean():
+    allRooms.clear()
 
 @socketIO.on("joinRoom")
 def joinRoom(data):

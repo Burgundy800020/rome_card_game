@@ -25,14 +25,11 @@ class Room:
         #cannot add more than 2 players
         if len(self.clients) < 2:
             self.clients.append(sid)
-        else:
-            return "FULL" #return FULL if 2 people are already connected
 
         #send 2 character choices to each player
         if len(self.clients) == 2:
             for sid in self.clients:
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
-        return ""
 
     def send(self, route, data, sid):
         socketIO.emit(f"{self.id}/{route}", data=data, room=sid)
@@ -62,6 +59,7 @@ def createRoom():
             event = threading.Event()
             allRooms[id] = Room(id, public=True, _eventCallback=event)
 
+            #wait till another user joins the empty room to return new room's id
             event.wait()
             return id #return id of room
 
@@ -82,13 +80,20 @@ def clean():
 def openRooms():
     return str(len(allRooms))
 
-@socketIO.on("/joinRoom")
+@server.route("/userInRoom")
+def userInRoom():
+    #return number of clients already connected to an open room
+    #prevents more than 2 users to connect
+    id = flask.request.form["id"]
+    return str(len(allRooms[id].clients))
+
+@socketIO.on("joinRoom")
 def joinRoom(data):
     #add connection to server's room list
     id = data["id"]
     userName = data["userName"]
     sid = flask.request.sid
-    return allRooms[id].addClient(userName, sid)
+    allRooms[id].addClient(userName, sid)
 
 if __name__ == "__main__":
     socketIO.run(server, host="0.0.0.0")

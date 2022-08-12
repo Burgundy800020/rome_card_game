@@ -8,9 +8,10 @@ server = flask.Flask(__name__)
 socketIO = flask_socketio.SocketIO(server)
 
 class Room:
-    def __init__(self, id, public=False):
+    def __init__(self, id, public=False, _eventCallback=None):
         self.id = id
         self.public = public #room visibility for players looking for an opponent
+        self._eventCallback = _eventCallback #internal variable
         self.clients = []
 
         
@@ -24,12 +25,15 @@ class Room:
         #cannot add more than 2 players
         if len(self.clients) < 2:
             self.clients.append(sid)
-
-            #send 2 character choices to player
-            self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
         else:
-            return
-    
+            return "FULL" #return FULL if 2 people are already connected
+
+        #send 2 character choices to each player
+        if len(self.clients) == 2:
+            for sid in self.clients:
+                self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
+        return ""
+
     def send(self, route, data, sid):
         socketIO.emit(f"{self.id}/{route}", data=data, room=sid)
     
@@ -46,25 +50,45 @@ def default():
 
 @server.route("/createRoom")
 def createRoom():
-    if len(allRooms) >= 100:return "FULL" #no more space for another room
+    #try to find a match for public room
+    if flask.request.form["public"] == "true":
+        for id, room in allRooms.items():
+            if room.public: #there exists an open public room
+                room.public = False #close public room as it is taken
+                room._eventCallback.set()
+                return room.id
+        else:
+            id = generateID()
+            event = threading.Event()
+            allRooms[id] = Room(id, public=True, _eventCallback=event)
 
-    #generate random string as room number, for example
-    #741f8bd1-13a6-11ed-86a8-b05adaee0887
-    id = generateID()
-    allRooms[id] = Room(id, public=flask.request.data.form["public"])
-    return id
+            event.wait()
+            return id #return id of room
 
-@server.route("/clean")
+    else:
+        if len(allRooms) >= 100:return "FULL" #no more space for another room
+
+        #generate random string as room number, for example
+        #741f8bd1-13a6-11ed-86a8-b05adaee0887
+        id = generateID() 
+        allRooms[id] = Room(id, public=False)
+        return id
+
+@server.route("/clean", methods=["GET", "POST"])
 def clean():
     allRooms.clear()
 
-@socketIO.on("joinRoom")
+@server.route("/openRooms")
+def openRooms():
+    return str(len(allRooms))
+
+@socketIO.on("/joinRoom")
 def joinRoom(data):
     #add connection to server's room list
     id = data["id"]
     userName = data["userName"]
     sid = flask.request.sid
-    allRooms[id].addClient(userName, sid)
+    return allRooms[id].addClient(userName, sid)
 
 if __name__ == "__main__":
     socketIO.run(server, host="0.0.0.0")

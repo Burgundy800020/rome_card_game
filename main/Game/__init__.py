@@ -10,9 +10,9 @@ class GameManager:
     def reset(self):
         pass   
 
-    def addPlayer(self, character):
-        self.players.append(character())
-    
+    def addPlayer(self, character, sid=""):
+        self.players.append(Characters.characterList[Characters.nameList.index(character)](sid=sid))
+
     def generateCharacters(self):
         #take two first characters (and remove them) from list
         characterChoices = self.remRomans[:2]

@@ -3,8 +3,11 @@ from . import Card as c
 #import Card as c
 
 class Player:
-    def __init__(self, game):
+    def __init__(self, game, sid=""):
+
         self.game = game
+        self.sid = sid
+
         self.opp = None
         self.hp = 9
         self.hand = []
@@ -57,6 +60,7 @@ class Player:
         for i in range(n):
             card = choices(self.deck, weights=self.weights, k=1).pop()
             self.hand.append(card)
+        
     
 
     def checkAvailableCards(self):
@@ -139,14 +143,6 @@ class Caesar(Player):
 
 
 
-class Cicero(Player):
-
-    name = "Marcus Tullius Cicero"
-
-    def __init__(self, game):
-        super(Cicero, self).__init__(game)
-
-
 class Pompeius(Player):
     
     name = "Gnaeus Pompeius Magnus" 
@@ -155,11 +151,13 @@ class Pompeius(Player):
         super(Pompeius, self).__init__(game)
 
 
-class Hannibal(Player):
+class Vercingetorix(Player):
     
-    name = "Hannibal Barca" 
+    name = "Vercingetorix" 
 
     def __init__(self, game):
-        super(Pompeius, self).__init__(game)
+        super(Vercingetorix, self).__init__(game)
 
-romans = [Crassus, Caesar, Cicero, Pompeius, Hannibal]
+characterList = [Caesar, Vercingetorix, Pompeius, Crassus]
+
+nameList = [p.name for p in characterList]

@@ -14,28 +14,48 @@ class Room:
         self._eventCallback = _eventCallback #internal variable
         self.clients = []
 
-        
-        #listen for messages from client
-        threading.Thread(target=socketIO.on(f"{id}/drawCard"), args=(self.drawCard, )).start()
-
         #initialize game instance
         self.game = Game.GameManager()
+
+        socketIO.on(f"{id}/drawCard")(self.drawCard)
+        socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
     
     def addClient(self, userName, sid):
         #cannot add more than 2 players
         if len(self.clients) < 2:
             self.clients.append(sid)
+        else:
+            return "FULL"
 
         #send 2 character choices to each player
         if len(self.clients) == 2:
+            #notify first client that a second one connected
+            self.send("simpleCommand", {"cmd":"joined2"}, room=self.clients[0])
+
             for sid in self.clients:
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
-
+        return "" #return empty string if completed successfully
+    
+    def removeClient(self, sid):
+        #remove client
+        #return true if client in list else false
+        try:self.clients.remove(sid)
+        except ValueError:return False
+        return True
+    
     def send(self, route, data, sid):
         socketIO.emit(f"{self.id}/{route}", data=data, room=sid)
     
+    ######## listening commands from client ########
+    def setCharacterChoice(self, data):
+        self.game.addPlayer(data["character"], sid=flask.request.sid)
+    
     def drawCard(self, data):
         n = data["n"]
+        print(n)
+    
+    def close(self):
+        self.__del__()
 
 #-----------------SERVER-----------------
 allRooms = {}
@@ -75,6 +95,7 @@ def createRoom():
 @server.route("/clean", methods=["GET", "POST"])
 def clean():
     allRooms.clear()
+    return ""
 
 @server.route("/openRooms")
 def openRooms():
@@ -93,7 +114,16 @@ def joinRoom(data):
     id = data["id"]
     userName = data["userName"]
     sid = flask.request.sid
-    allRooms[id].addClient(userName, sid)
+    return allRooms[id].addClient(userName, sid)
+
+@socketIO.on("disconnect")
+def disconnect():
+    #get called automatically when someone disconnects from the server
+    sid = flask.request.sid
+    for id, room in allRooms.items():
+
+        if room.removeClient(sid): #client got removed
+            break
 
 if __name__ == "__main__":
     socketIO.run(server, host="0.0.0.0")

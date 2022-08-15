@@ -56,8 +56,6 @@ class Room:
     
     def drawCard(self, data):
         #draw a given number of card for a given character and return hand
-        print(self.clients)
-
         sid = flask.request.sid
         character = self.clients[sid]
         character.draw(data["n"])

@@ -55,7 +55,7 @@ class Player:
         self.resetCount()
     
     def handToJson(self):
-        return {"hand":[card.toJson() for card in self.hand]}
+        return [card.toJson() for card in self.hand]
     
     #basic actions
 

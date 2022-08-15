@@ -11,13 +11,18 @@ class Card:
         self.numeral = randint(1, 6)
         self.available = True
 
-
     def toJson(self):
         #convert card into json format
         return {
             "type":self.type,
             "numeral":self.numeral,
             "available":self.available}
+    
+    def fromJson(self, data):
+        #load card information from json data
+        self.type = data["type"]
+        self.numeral = data["numeral"]
+        self.available = data["available"]
 
 class Shield(Card):
     def __init__(self):
@@ -129,7 +134,7 @@ class Recrutement(Card):
 class Rebellion(Card):
     def __init__(self):
         super(Rebellion, self).__init__()
-        self.type = self.POLITICAL
+        self.type = POLITICAL
 
 class Election(Card):
     def __init__(self):

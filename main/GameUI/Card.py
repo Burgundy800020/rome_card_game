@@ -1,6 +1,4 @@
 import zipfile, io
-from PIL import Image
-from . import Card
 
 archive = zipfile.ZipFile("sources.zip", "r")
 
@@ -11,5 +9,7 @@ def readImage(name:str, source=archive) -> bytes:
     data.seek(0)
     return data.read()
 
-def makeCharacterCard(character:str):
-    return Card.Card(character)
+class Card:
+    def __init__(self, character:str):
+        self.name = character
+        self.image = readImage(character)

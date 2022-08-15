@@ -1,5 +1,10 @@
-from PIL import Image
+"""
+- Resize image to appropriate aspect ratio
+- Convert image format to png
+- Zip image into sources archive
+"""
 import sys, zipfile, io
+from PIL import Image
 
 file = sys.argv[1]
 archive = zipfile.ZipFile("sources.zip", "w")
@@ -8,11 +13,10 @@ image = Image.open(file)
 image = image.resize((150, 200))
 
 image_bytes = io.BytesIO()
-file_png = ".".join(file.split(".")[:-1])+ ".png"
-image.save("file.png", format="png")
 image.save(image_bytes, format="png")
-#print(image_bytes.read())
+image_bytes.seek(0)
 
+file_png = ".".join(file.split(".")[:-1])+ ".png"
 with archive.open(file_png, "w") as file:
     file.write(image_bytes.read())
     file.close()

@@ -54,11 +54,15 @@ class Player:
     def postturn(self):
         self.resetCount()
     
+    def handToJson(self):
+        return {"hand":[card.toJson() for card in self.hand]}
+    
     #basic actions
 
     def draw(self,n):
+        #chose cards from deck and initialize
         for i in range(n):
-            card = choices(self.deck, weights=self.weights, k=1).pop()
+            card = choices(self.deck, weights=self.weights, k=1).pop()()
             self.hand.append(card)
         
     
@@ -126,8 +130,8 @@ class Crassus(Player):
 
     name = "Marcus Licinius Crassus"
 
-    def __init__(self, game):
-        super(Crassus, self).__init__(game)
+    def __init__(self, game, **kwargs):
+        super(Crassus, self).__init__(game, **kwargs)
         
     def drawphase(self):
         self.draw(3)
@@ -138,8 +142,8 @@ class Caesar(Player):
     name = "Caius Julius Caesar" 
 
 
-    def __init__(self, game):
-        super(Caesar, self).__init__(game)
+    def __init__(self, game, **kwargs):
+        super(Caesar, self).__init__(game, **kwargs)
 
 
 
@@ -147,17 +151,16 @@ class Pompeius(Player):
     
     name = "Gnaeus Pompeius Magnus" 
 
-    def __init__(self, game):
-        super(Pompeius, self).__init__(game)
+    def __init__(self, game, **kwargs):
+        super(Pompeius, self).__init__(game, **kwargs)
 
 
 class Vercingetorix(Player):
     
     name = "Vercingetorix" 
 
-    def __init__(self, game):
-        super(Vercingetorix, self).__init__(game)
+    def __init__(self, game, **kwargs):
+        super(Vercingetorix, self).__init__(game, **kwargs)
 
 characterList = [Caesar, Vercingetorix, Pompeius, Crassus]
-
 nameList = [p.name for p in characterList]

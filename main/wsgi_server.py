@@ -12,35 +12,37 @@ class Room:
         self.id = id
         self.public = public #room visibility for players looking for an opponent
         self._eventCallback = _eventCallback #internal variable
-        self.clients = []
+        self.clients = {}
 
         #initialize game instance
-        self.game = Game.GameManager()
+        self.game = Game.GameManager(self)
 
         socketIO.on(f"{id}/drawCard")(self.drawCard)
         socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
     
-    def addClient(self, userName, sid):
+    def addClient(self, sid):
         #cannot add more than 2 players
         if len(self.clients) < 2:
-            self.clients.append(sid)
+            self.clients[sid] = None
         else:
             return "FULL"
 
         #send 2 character choices to each player
         if len(self.clients) == 2:
             #notify first client that a second one connected
-            self.send("simpleCommand", {"cmd":"joined2"}, room=self.clients[0])
+            self.send("simpleCommand", {"cmd":"joined2"}, room=list(self.clients.keys())[0])
 
-            for sid in self.clients:
+            for sid, _ in self.clients.items():
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
         return "" #return empty string if completed successfully
     
     def removeClient(self, sid):
         #remove client
         #return true if client in list else false
-        try:self.clients.remove(sid)
-        except ValueError:return False
+        try:
+            del self.clients[sid]
+        except ValueError:
+            return False
         return True
     
     def send(self, route, data, sid):
@@ -48,11 +50,18 @@ class Room:
     
     ######## listening commands from client ########
     def setCharacterChoice(self, data):
-        self.game.addPlayer(data["character"], sid=flask.request.sid)
+        sid = flask.request.sid
+        character = self.game.addPlayer(data["character"], sid=sid)
+        self.clients[sid] = character
     
     def drawCard(self, data):
-        n = data["n"]
-        print(n)
+        #draw a given number of card for a given character and return hand
+        print(self.clients)
+
+        sid = flask.request.sid
+        character = self.clients[sid]
+        character.draw(data["n"])
+        return character.handToJson()
     
     def close(self):
         self.__del__()
@@ -112,9 +121,8 @@ def userInRoom():
 def joinRoom(data):
     #add connection to server's room list
     id = data["id"]
-    userName = data["userName"]
     sid = flask.request.sid
-    return allRooms[id].addClient(userName, sid)
+    return allRooms[id].addClient(sid)
 
 @socketIO.on("disconnect")
 def disconnect():

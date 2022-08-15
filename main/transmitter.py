@@ -1,6 +1,7 @@
+import time
 import socketio, requests
 
-def show(args, kwargs):
+def show(*args, **kwargs):
     print(args, kwargs)
 
 #SERVER = "https://roman-card-game.herokuapp.com/"
@@ -11,9 +12,13 @@ sio.connect(SERVER)
 id = requests.get(f"{SERVER}/createRoom", data={"public":"false"}).text
 print(id)
 
-requests.get(f"{SERVER}/clean")
-sio.emit(f"{id}/drawCard", data={"n":10})
-sio.emit(f"joinRoom", data={"id":id, "userName":"Crassus"}, callback=lambda *args, **kwargs:show(args, kwargs))
+sio.emit(f"joinRoom", data={"id":id}, callback=lambda *args, **kwargs:show(args, kwargs))
+sio.emit(f"joinRoom", data={"id":id}, callback=lambda *args, **kwargs:show(args, kwargs))
+time.sleep(.5)
 
-print("\n\n")
-print(requests.get(f"{SERVER}/openRooms").text)
+sio.emit(f"{id}/setCharacterChoice", data={"character":"Caius Julius Caesar"})
+time.sleep(.5)
+
+sio.emit(f"{id}/drawCard", data={"n":1}, callback=show)
+
+print("Rooms open: " + requests.get(f"{SERVER}/openRooms").text)

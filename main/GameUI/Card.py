@@ -13,3 +13,4 @@ class CharacterCard:
     def __init__(self, character:str):
         self.name = character
         self.image = readImage("soldier")
+        self.description = ""

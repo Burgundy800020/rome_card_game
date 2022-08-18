@@ -54,14 +54,16 @@ class Room:
         character = self.game.addPlayer(data["character"], sid=sid)
         self.clients[sid] = character
     
+    
     def drawCard(self, data):
         #draw a given number of card for a given character and return hand
         sid = flask.request.sid
         character = self.clients[sid]
         character.draw(data["n"])
         return character.handToJson()
-    
+
     def close(self):
+        socketIO.close_room(f"{id}/drawCard")
         self.__del__()
 
 #-----------------SERVER-----------------
@@ -101,6 +103,8 @@ def createRoom():
 
 @server.route("/clean", methods=["GET", "POST"])
 def clean():
+    for room in allRooms.values():
+        room.close()
     allRooms.clear()
     return ""
 
@@ -126,9 +130,12 @@ def joinRoom(data):
 def disconnect():
     #get called automatically when someone disconnects from the server
     sid = flask.request.sid
-    for id, room in allRooms.items():
-
+    for room in allRooms.values():
         if room.removeClient(sid): #client got removed
+
+            if len(room.clients) == 0: #no all clients left the room; delete room
+                room.close()
+
             break
 
 if __name__ == "__main__":

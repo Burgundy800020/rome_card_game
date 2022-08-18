@@ -7,6 +7,7 @@ class GameManager:
         self.server = server
         self.remRomans = Characters.characterList.copy(); shuffle(self.remRomans)
         self.players = []
+        self.currentPlayer = False
     
     def reset(self):
         pass   
@@ -26,7 +27,8 @@ class GameManager:
         return character.draw(n)
     
     def play(self):
-        pass
+        while True:
+            self.currentPlayer = not self.currentPlayer
 
 if __name__ == "__main__":
     g = GameManager()

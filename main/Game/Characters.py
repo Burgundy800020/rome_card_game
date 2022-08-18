@@ -65,6 +65,8 @@ class Player:
             card = choices(self.deck, weights=self.weights, k=1).pop()()
             self.hand.append(card)
         
+        
+        
     
 
     def checkAvailableCards(self):

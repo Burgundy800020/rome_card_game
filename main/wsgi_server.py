@@ -27,33 +27,36 @@ class Room:
         else:
             return "FULL"
 
-        #send 2 character choices to each player
         if len(self.clients) == 2:
-            #notify first client that a second one connected
-            self.send("simpleCommand", {"cmd":"joined2"}, room=list(self.clients.keys())[0])
+
+            if not self.public:
+                #notify first client that a second one connected
+                #only in private mode
+                self.send("establishPrivateConnection", {}, list(self.clients.keys())[0])
 
             for sid, _ in self.clients.items():
+                #send 2 character choices to each player
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
-        return "" #return empty string if completed successfully
+
+        return "ACCEPTED" #return empty string if completed successfully
     
     def removeClient(self, sid):
         #remove client
         #return true if client in list else false
         try:
             del self.clients[sid]
-        except ValueError:
+        except KeyError:
             return False
         return True
     
     def send(self, route, data, sid):
-        socketIO.emit(f"{self.id}/{route}", data=data, room=sid)
+        socketIO.emit(route, data=data, room=sid)
     
     ######## listening commands from client ########
     def setCharacterChoice(self, data):
         sid = flask.request.sid
         character = self.game.addPlayer(data["character"], sid=sid)
         self.clients[sid] = character
-    
     
     def drawCard(self, data):
         #draw a given number of card for a given character and return hand
@@ -64,7 +67,6 @@ class Room:
 
     def close(self):
         socketIO.close_room(f"{id}/drawCard")
-        self.__del__()
 
 #-----------------SERVER-----------------
 allRooms = {}
@@ -106,6 +108,12 @@ def clean():
     for room in allRooms.values():
         room.close()
     allRooms.clear()
+    return ""
+
+@server.route("/deleteRoom")
+def deleteRoom():
+    id = flask.request.data["id"]
+    del allRooms[id]
     return ""
 
 @server.route("/openRooms")

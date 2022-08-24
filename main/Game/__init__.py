@@ -28,6 +28,7 @@ class GameManager:
     
     def play(self):
         while True:
+            print(self.players)
             self.currentPlayer = not self.currentPlayer
 
 if __name__ == "__main__":

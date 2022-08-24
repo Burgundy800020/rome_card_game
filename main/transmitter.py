@@ -5,7 +5,8 @@ def show(*args, **kwargs):
     print(args, kwargs)
 
 #SERVER = "https://roman-card-game.herokuapp.com/"
-SERVER = "http://192.168.1.6:5000"
+SERVER = "http://172.29.3.131:5000"
+#SERVER = "http://192.168.1.6:5000"
 sio = socketio.Client()
 sio.connect(SERVER)
 

@@ -18,4 +18,4 @@ class CharacterCard:
     def __init__(self, character:str):
         self.name = character
         self.image = readImage("soldier")
-        self.description = "This is a very very long string to test text."
+        self.description = "This is another very long description to fill in the empty space."

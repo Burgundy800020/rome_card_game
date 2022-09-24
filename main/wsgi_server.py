@@ -12,7 +12,7 @@ class Room:
         self.id = id
         self.public = public #room visibility for players looking for an opponent
         self._eventCallback = _eventCallback #internal variable
-        self.clients = {}
+        self.clients = {} #dictionnary: sid maps to character object
 
         #initialize game instance
         self.game = Game.GameManager(self)
@@ -34,7 +34,7 @@ class Room:
                 #only in private mode
                 self.send("establishPrivateConnection", {}, list(self.clients.keys())[0])
 
-            for sid, _ in self.clients.items():
+            for sid in self.clients.keys():
                 #send 2 character choices to each player
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
 
@@ -57,6 +57,15 @@ class Room:
         sid = flask.request.sid
         character = self.game.addPlayer(data["character"], sid=sid)
         self.clients[sid] = character
+
+        #check if both characters are set
+        if not None in self.clients.values():
+
+            #notify both players when game is starting
+            for sid in self.clients.keys():
+                self.send("startGame", {}, sid=sid)
+
+            self.game.play()
     
     def drawCard(self, data):
         #draw a given number of card for a given character and return hand
@@ -64,6 +73,11 @@ class Room:
         character = self.clients[sid]
         character.draw(data["n"])
         return character.handToJson()
+    
+    def discardCard(self, data):
+        #given an array of cards indexes, delete the cards correponding to the indexes
+        sid = flask.request.sid
+        character = self.clients[sid]
 
     def close(self):
         socketIO.close_room(f"{id}/drawCard")
@@ -113,6 +127,7 @@ def clean():
 @server.route("/deleteRoom")
 def deleteRoom():
     id = flask.request.data["id"]
+    allRooms[id].close()
     del allRooms[id]
     return ""
 
@@ -141,7 +156,7 @@ def disconnect():
     for room in allRooms.values():
         if room.removeClient(sid): #client got removed
 
-            if len(room.clients) == 0: #no all clients left the room; delete room
+            if len(room.clients) == 0: #all clients left the room; delete room
                 room.close()
 
             break

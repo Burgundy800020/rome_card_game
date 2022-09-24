@@ -14,12 +14,10 @@ id = requests.get(f"{SERVER}/createRoom", data={"public":"false"}).text
 print(id)
 
 sio.emit(f"joinRoom", data={"id":id}, callback=lambda *args, **kwargs:show(args, kwargs))
-sio.emit(f"joinRoom", data={"id":id}, callback=lambda *args, **kwargs:show(args, kwargs))
 time.sleep(.5)
 requests.get(f"{SERVER}/clean")
 
 sio.emit(f"{id}/setCharacterChoice", data={"character":"Caius Julius Caesar"})
-sio.emit(f"{id}/setCharacterChoice", data={"character":"Marcus Licinius Crassus"})
 time.sleep(.5)
 
 sio.emit(f"{id}/drawCard", data={"n":5}, callback=show)

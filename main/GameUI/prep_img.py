@@ -7,7 +7,7 @@ import sys, zipfile, io
 from PIL import Image
 
 file = sys.argv[1]
-archive = zipfile.ZipFile("sources.zip", "w")
+archive = zipfile.ZipFile("sources.zip", "a")
 
 image = Image.open(file)
 image = image.resize((150, 200))
@@ -20,3 +20,4 @@ file_png = ".".join(file.split(".")[:-1])+ ".png"
 with archive.open(file_png, "w") as file:
     file.write(image_bytes.read())
     file.close()
+archive.close()

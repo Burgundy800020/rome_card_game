@@ -1,4 +1,4 @@
-from random import choices, shuffle
+from random import choices
 from . import Card as c
 #import Card as c
 
@@ -39,7 +39,7 @@ class Player:
         pass
 
     def drawphase(self):
-        self.draw(2)
+        pass
 
     def playphase(self):
         while True:
@@ -64,10 +64,13 @@ class Player:
         for i in range(n):
             card = choices(self.deck, weights=self.weights, k=1).pop()()
             self.hand.append(card)
-        
-        
-        
     
+    def discard(self, n:list):
+        n.sort(reverse=True)
+        for i in n:
+            del self.hand[i]    
+        
+
 
     def checkAvailableCards(self):
         #check available cards during play phase

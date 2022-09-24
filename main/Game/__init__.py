@@ -1,4 +1,5 @@
 from random import shuffle
+import threading
 from . import Card, Characters
 #import Card, Characters
 
@@ -8,6 +9,7 @@ class GameManager:
         self.remRomans = Characters.characterList.copy(); shuffle(self.remRomans)
         self.players = []
         self.currentPlayer = False
+        self.playingTurn = threading.Event()
     
     def reset(self):
         pass   
@@ -28,8 +30,15 @@ class GameManager:
     
     def play(self):
         while True:
-            print(self.players)
-            self.currentPlayer = not self.currentPlayer
+            self.playingTurn.clear()
+
+            #fetch current player
+            player = self.players[self.currentPlayer]
+            self.server.send("playTurn", {}, sid=player.sid) #let player begin the turn
+
+            self.playingTurn.wait()
+            self.currentPlayer = not self.currentPlayer #invert player
+            break
 
 if __name__ == "__main__":
     g = GameManager()

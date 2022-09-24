@@ -1,3 +1,4 @@
+from typing import List
 import uuid, threading
 import flask, flask_socketio
 import Game
@@ -18,6 +19,7 @@ class Room:
         self.game = Game.GameManager(self)
 
         socketIO.on(f"{id}/drawCard")(self.drawCard)
+        socketIO.on(f"{id}/discardCard")(self.discardCard)
         socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
     
     def addClient(self, sid):
@@ -61,6 +63,11 @@ class Room:
         #check if both characters are set
         if not None in self.clients.values():
 
+            #set opponent parameter in Player object
+            playerlist = list(self.clients.values())
+            playerlist[0].opp = playerlist[1]
+            playerlist[1].opp = playerlist[0]
+
             #notify both players when game is starting
             for sid in self.clients.keys():
                 self.send("startGame", {}, sid=sid)
@@ -72,12 +79,21 @@ class Room:
         sid = flask.request.sid
         character = self.clients[sid]
         character.draw(data["n"])
-        return character.handToJson()
+
+        #inform opponent about the number of card left in hand
+        hand = character.handToJson()
+        self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
+        return hand
     
     def discardCard(self, data):
         #given an array of cards indexes, delete the cards correponding to the indexes
         sid = flask.request.sid
         character = self.clients[sid]
+        character.discard(data["n"])
+        
+        hand = character.handToJson()
+        self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
+        return hand
 
     def close(self):
         socketIO.close_room(f"{id}/drawCard")

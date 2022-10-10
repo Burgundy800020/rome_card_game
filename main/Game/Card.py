@@ -126,16 +126,6 @@ class Land_Redistribution(Card):
         super(Land_Redistribution, self).__init__()
         self.type = POLITICAL
 
-class Recrutement(Card):
-    def __init__(self):
-        super(Recrutement, self).__init__()
-        self.type = POLITICAL
-
-class Rebellion(Card):
-    def __init__(self):
-        super(Rebellion, self).__init__()
-        self.type = POLITICAL
-
 class Election(Card):
     def __init__(self):
         super(Election, self).__init__()

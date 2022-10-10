@@ -52,7 +52,7 @@ class Room:
         except KeyError:
             return False
         return True
-    
+            
     def send(self, route, data, sid):
         socketIO.emit(route, data=data, room=sid)
     
@@ -76,6 +76,8 @@ class Room:
 
             self.game.play()
     
+    #using the drawCard method in gameManager
+    """
     def drawCard(self, data):
         #draw a given number of card for a given character and return hand
         sid = flask.request.sid
@@ -86,7 +88,8 @@ class Room:
         hand = character.handToJson()
         self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
         return hand
-    
+    """
+
     def discardCard(self, data):
         #given an array of cards indexes, delete the cards correponding to the indexes
         sid = flask.request.sid

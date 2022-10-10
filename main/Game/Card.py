@@ -6,6 +6,7 @@ UNIT = 1
 MILITARY = 2
 POLITICAL = 3
 
+
 class Card:
     def __init__(self):
         self.numeral = randint(1, 6)

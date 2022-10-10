@@ -9,51 +9,22 @@ class Player:
         self.sid = sid
 
         self.opp = None
-        self.hp = 9
+        self.hp = 10
         self.hand = []
         self.units = []
         self.name = ""
         
-        self.deck = [c.Shield, c.Horse, c.Arrows]
-        self.weights = [1,1,1]
+        
 
         #counters
         self.itemLimit = self.PoliticalLimit = 1
+        self.handLimit = 4
         self.resetCount()
     
     def resetCount(self):
         #reset counters for item cards and strategy cards played during a turn
         self.itemPlayed = self.PoliticalPlayed = 0
         
-
-    def playTurn(self):
-        self.preturn()
-        self.drawphase()
-        self.playphase()
-        self.discardphase()
-        self.attackphase()
-        self.postturn()
-
-
-    def preturn(self):
-        pass
-
-    def drawphase(self):
-        pass
-
-    def playphase(self):
-        while True:
-            pass
-
-    def discardphase(self):
-        pass
-
-    def attackphase(self):
-        pass
-
-    def postturn(self):
-        self.resetCount()
-    
     def handToJson(self):
         return [card.toJson() for card in self.hand]
     
@@ -64,12 +35,14 @@ class Player:
         for i in range(n):
             card = choices(self.deck, weights=self.weights, k=1).pop()()
             self.hand.append(card)
+        
     
     def discard(self, n:list):
         n.sort(reverse=True)
         for i in n:
             del self.hand[i]    
         
+
 
 
     def checkAvailableCards(self):
@@ -131,6 +104,21 @@ class Player:
     def toJson(self):
         return {"name":self.name}
 
+class Marius(Player):
+
+    name = "Caius Marius"
+
+    def __init__(self, game, **kwargs):
+        super(Marius, self).__init__(game, **kwargs)
+        
+class Sulla(Player):
+
+    name = "Lucius Cornelius Sulla"
+
+    def __init__(self, game, **kwargs):
+        super(Sulla, self).__init__(game, **kwargs)
+        
+
 class Crassus(Player):
 
     name = "Marcus Licinius Crassus"
@@ -138,8 +126,6 @@ class Crassus(Player):
     def __init__(self, game, **kwargs):
         super(Crassus, self).__init__(game, **kwargs)
         
-    def drawphase(self):
-        self.draw(3)
 
 
 class Caesar(Player):
@@ -166,6 +152,20 @@ class Vercingetorix(Player):
 
     def __init__(self, game, **kwargs):
         super(Vercingetorix, self).__init__(game, **kwargs)
+
+class Mithridates(Player):
+    
+    name = "Mithridates" 
+
+    def __init__(self, game, **kwargs):
+        super(Mithridates, self).__init__(game, **kwargs)
+
+class Surena(Player):
+    
+    name = "Surena" 
+
+    def __init__(self, game, **kwargs):
+        super(Surena, self).__init__(game, **kwargs)
 
 characterList = [Caesar, Vercingetorix, Pompeius, Crassus]
 nameList = [p.name for p in characterList]

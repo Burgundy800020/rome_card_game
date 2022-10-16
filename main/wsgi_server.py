@@ -18,10 +18,10 @@ class Room:
         self.clients = {} #dictionnary: sid maps to character object
 
         #initialize game instance
-        self.game = Game.GameManager(self)
+        self.game = Game.GameManager(self, socketIO)
 
-        socketIO.on(f"{id}/drawCard")(self.drawCard)
-        socketIO.on(f"{id}/discardCard")(self.discardCard)
+        """socketIO.on(f"{id}/drawCard")(self.drawCard)
+        socketIO.on(f"{id}/discardCard")(self.discardCard)"""
         socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
     
     def addClient(self, sid):
@@ -88,7 +88,6 @@ class Room:
         hand = character.handToJson()
         self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
         return hand
-    """
 
     def discardCard(self, data):
         #given an array of cards indexes, delete the cards correponding to the indexes
@@ -99,6 +98,7 @@ class Room:
         hand = character.handToJson()
         self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
         return hand
+    """
 
     def close(self):
         socketIO.close_room(f"{id}/drawCard")

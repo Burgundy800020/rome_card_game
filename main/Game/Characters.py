@@ -14,7 +14,6 @@ class Player:
         self.units = []
         self.name = ""
         
-        
 
         #counters
         self.itemLimit = self.PoliticalLimit = 1
@@ -27,23 +26,19 @@ class Player:
         
     def handToJson(self):
         return [card.toJson() for card in self.hand]
-    
-    #basic actions
 
+    #basic actions
+    """"
     def draw(self,n):
         #chose cards from deck and initialize
         for i in range(n):
             card = choices(self.deck, weights=self.weights, k=1).pop()()
             self.hand.append(card)
-        
-    
+
     def discard(self, n:list):
         n.sort(reverse=True)
         for i in n:
-            del self.hand[i]    
-        
-
-
+            del self.hand[i]     """
 
     def checkAvailableCards(self):
         #check available cards during play phase
@@ -74,7 +69,6 @@ class Player:
 
         
             elif card.type == c.MILITARY:
-
 
                 if isinstance(card, c.Testudo):
                     card.available = False

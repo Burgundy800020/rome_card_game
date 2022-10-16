@@ -1,18 +1,26 @@
 from random import shuffle, choices
 import threading
+import flask, flask_socketio
+
 from . import Card as c, Characters
 #import Card, Characters
 
 class GameManager:
-    def __init__(self, server):
-        self.server = server
+    def __init__(self, room, socketIO):
+        self.room = room
+        self.socketIO = socketIO
         self.remRomans = Characters.characterList.copy(); shuffle(self.remRomans)
         self.deck = [c.Shield, c.Horse, c.Arrows]
         self.weights = [1,1,1]
         self.players = []
         self.currentPlayer = False
+
+        #events
         self.playingTurn = threading.Event()
         self.discarding = threading.Event()
+
+        #listen to channels
+        self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
     
     def reset(self):
         pass   
@@ -37,26 +45,32 @@ class GameManager:
             self.hand.append(card)
         #update hand to both players
         hand = character.handToJson()
-        self.server.send("playerCard", {"hand":hand}, character.sid)
-        self.server.send("opponentCard", {"n":len(hand)}, character.opp.sid)
+        self.room.send("playerCard", {"hand":hand}, character.sid)
+        self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
 
-    def discardCard(self, character:Characters.Player, n):
+    def discardCardListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        #remove cards from player's hand
+        n = data["n"]
+        n.sort(reverse=True)
+        for i in n:
+            del self.hand[i] 
+        #update hand to both players
+        hand = character.handToJson()
+        self.room.send("playerCard", {"hand":hand}, character.sid)
+        self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
+    
+    def discardCardRequest(self, character:Characters.Player, n):
         self.discarding.clear()
-        self.server.send("playerDiscard", {"n": n}, character.sid)
+        self.room.send("playerDiscard", {"n": n}, character.sid)
         self.discarding.wait()
         #receive call back from frontend and modify player's hand in backend
 
-        #update hand to both players
-        hand = character.handToJson()
-        self.server.send("playerCard", {"hand":hand}, character.sid)
-        self.server.send("opponentCard", {"n":len(hand)}, character.opp.sid)
-
-
-
     def heal(self, character:Characters.Player, n):
         character.hp = min(character.hp + n, 10)
-        self.server.send("playerHp", {"hp": character.hp}, character.sid)
-        self.server.send("opponentHp", {"hp":character.hp}, character.opp.sid)
+        self.room.send("playerHp", {"hp": character.hp}, character.sid)
+        self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
     
     #deal n damage to character
     #The damage is decisive if it results from a Legionary or Cavalry attack
@@ -70,8 +84,8 @@ class GameManager:
             pass
 
         #update hp to both players
-        self.server.send("playerHp", {"hp": character.hp}, character.sid)
-        self.server.send("opponentHp", {"hp":character.hp}, character.opp.sid)
+        self.room.send("playerHp", {"hp": character.hp}, character.sid)
+        self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
 
     
     def play(self):

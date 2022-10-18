@@ -14,6 +14,9 @@ class Player:
         self.units = []
         self.name = ""
         
+        #debuffs
+        self.sieged = False
+        self.panemed = False
 
         #counters
         self.itemLimit = self.PoliticalLimit = 1
@@ -28,7 +31,7 @@ class Player:
         return [card.toJson() for card in self.hand]
 
     #basic actions
-    """"
+"""
     def draw(self,n):
         #chose cards from deck and initialize
         for i in range(n):
@@ -93,7 +96,8 @@ class Player:
                     card.available = False
 
                 else:
-                    card.available = True
+                    card.available = True  
+
 
     def toJson(self):
         return {"name":self.name}

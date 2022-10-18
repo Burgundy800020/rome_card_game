@@ -15,12 +15,19 @@ class GameManager:
         self.players = []
         self.currentPlayer = False
 
+        #game
+        self.playphaseOngoing = True
+
         #events
         self.playingTurn = threading.Event()
         self.discarding = threading.Event()
+        self.playing = threading.Event()
+
 
         #listen to channels
         self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
+        self.socketIO.on(f"{self.room.id}/playphase")(self.playphaseListen)
+
     
     def reset(self):
         pass   
@@ -36,7 +43,7 @@ class GameManager:
         self.remRomans = self.remRomans[2:]
         return [character.name for character in characterChoices]
     
-    #Basic actions
+    #Basic card actions
 
     def drawCard(self, character:Characters.Player, n):
         #modify player's hand in backend
@@ -60,13 +67,16 @@ class GameManager:
         hand = character.handToJson()
         self.room.send("playerCard", {"hand":hand}, character.sid)
         self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
+        self.discarding.set()
     
     def discardCardRequest(self, character:Characters.Player, n):
         self.discarding.clear()
-        self.room.send("playerDiscard", {"n": n}, character.sid)
+        self.room.send("discardInput", {"n": n}, character.sid)
         self.discarding.wait()
         #receive call back from frontend and modify player's hand in backend
 
+
+    #basic hp actions
     def heal(self, character:Characters.Player, n):
         character.hp = min(character.hp + n, 10)
         self.room.send("playerHp", {"hp": character.hp}, character.sid)
@@ -87,7 +97,59 @@ class GameManager:
         self.room.send("playerHp", {"hp": character.hp}, character.sid)
         self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
 
+    #basic play actions
+
+    def checkCardAvailable(self, player, card):
+        #check available cards during play phase            
+        if card.type == c.ITEM:
+
+            if player.itemPlayed >= player.itemLimit:
+                return False
+
+            elif isinstance(card, c.Shield):
+                return True if any([isinstance(unit, c.Legionary) for unit in player.units]) else False
+            
+            elif isinstance(card, c.Horse):
+                return True if any([isinstance(unit, c.Cavalry) for unit in player.units]) else False
+
+            elif isinstance(card, c.Arrows):
+                return True if any([isinstance(unit, c.Archery) for unit in player.units]) else False
+            
+            elif isinstance(card, c.Ration):
+                return True
+
+            elif isinstance(card, c.Aquilifer):
+                return True if len(player.units) else False
+
+        elif card.type == c.UNIT:
+            card.avaiable = False if len(player.units) >= 3 else True
+
     
+        elif card.type == c.MILITARY:
+
+            if isinstance(card, c.Testudo):
+                return False
+
+            elif isinstance(card, c.Camp):
+                return True if len(player.units) else False
+            
+            elif isinstance(card, c.Barbarian_Invasion):
+                return True if any([unit.ap == 1 for unit in player.opp.units]) else False 
+
+            return True
+
+        else: #remaining card type: political
+            if self.politicalPlayed >= self.politicalLimit:
+                return False
+
+            elif isinstance(card, c.Urban_Construction):
+                return True if len(self.hand) >= 2 else False
+
+            elif isinstance(card, c.Veto):
+                return False
+
+            return True
+
     def play(self):
         while True:
             #self.playingTurn.clear()
@@ -116,12 +178,41 @@ class GameManager:
     def drawphase(self, player):
         self.drawCard(player, 2)
 
+   
+    def playphaseListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        #input -1 if player wishes to end playphase
+        n = data["n"]
+        if n < 0:
+            self.playphaseOngoing = False
+        else:
+            card = character.hand[n]
+            del character.hand[n]
+            #show opponent which card were played
+            self.room.send("opponentCard", {"n":len(character.hand)}, character.opp.sid)
+            self.room.send("opponentPlayCard", {"card":card.toJson()}, character.opp.sid)
+            
+            self.playCard(character, card)
+        self.playing.set()
+
     def playphase(self, player):
-        while True:
-            break
+        while self.playphaseOngoing:
+            self.playing.clear()
+            n = []
+            #check playable cards
+            for card in player.hand:
+                if self.checkCardAvailable(player, card):
+                    n.append(card)
+            if not len(n):
+                break
+            self.room.send("playInput", {"n": n}, player.sid)
+            self.playing.wait()
+        self.playphaseOngoing = True 
 
     def discardphase(self, player):
-        pass
+        if len(player.hand) > player.handLimit:
+            self.discardCardRequest(player, len(player.hand) - player.handLimit)
 
     def battlephase(self, player):
         pass

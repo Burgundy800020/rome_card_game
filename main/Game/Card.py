@@ -131,3 +131,13 @@ class Election(Card):
     def __init__(self):
         super(Election, self).__init__()
         self.type = POLITICAL
+
+class Panem_Et_Circenses(Card):
+    def __init__(self):
+        super(Panem_Et_Circenses, self).__init__()
+        self.type = POLITICAL
+
+class Urban_Construction(Card):
+    def __init__(self):
+        super(Urban_Construction, self).__init__()
+        self.type = POLITICAL

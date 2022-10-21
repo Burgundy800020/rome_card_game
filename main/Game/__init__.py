@@ -97,6 +97,22 @@ class GameManager:
         self.room.send("playerHp", {"hp": character.hp}, character.sid)
         self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
 
+    #card effects
+    def playCard(self, player: Characters.Player, card: c.Card):
+        if card.type == c.ITEM:
+            pass
+        elif card.type == c.UNIT:
+            pass
+        elif card.type == c.MILITARY:
+            if isinstance(card, c.Barbarian_Invasion):
+                n = []
+                for unit in player.opp.units:
+                    if unit.ap == 1:
+                        n.append(unit)
+                self.room.send("opponentUnitInput", {"n": n}, player.sid)            
+        else:
+            pass
+
     #basic play actions
 
     def checkCardAvailable(self, player, card):

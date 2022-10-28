@@ -5,6 +5,8 @@ import flask, flask_socketio
 from . import Card as c, Characters
 #import Card, Characters
 
+
+
 class GameManager:
     def __init__(self, room, socketIO):
         self.room = room
@@ -74,8 +76,7 @@ class GameManager:
         self.room.send("discardInput", {"n": n}, character.sid)
         self.discarding.wait()
         #receive call back from frontend and modify player's hand in backend
-
-
+    
     #basic hp actions
     def heal(self, character:Characters.Player, n):
         character.hp = min(character.hp + n, 10)
@@ -166,33 +167,25 @@ class GameManager:
 
             return True
 
-    def play(self):
-        while True:
-            #self.playingTurn.clear()
-
-            #fetch current player
-            player = self.players[self.currentPlayer]
-            #self.server.send("playTurn", {}, sid=player.sid) #let player begin the turn
-
-            #self.playingTurn.wait()
-            self.playturn(player)
-            self.currentPlayer = not self.currentPlayer #invert player
-            break
-
-    def playturn(self, player):
-        self.preturn(player)
-        self.drawphase(player)
-        self.playphase(player)
-        self.discardphase(player)
-        self.battlephase(player)
-        self.postturn(player)
-
+    def Handle(e, self, player):
+        match e:
+            case "prePhaseDone":
+                self.drawphase(player)
+            case "drawPhaseDone":
+                self.playphase(player)
+            case "playphaseDone":
+                self.discardphase(player)
+            case "discardPhaseDone":
+                self.battlephase(player)
+            case "battlePhaseDone":
+                self.postturn(player)
 
     def preturn(self, player):
         pass
 
     def drawphase(self, player):
         self.drawCard(player, 2)
+        self.Handle(player)
 
    
     def playphaseListen(self, data):
@@ -225,15 +218,21 @@ class GameManager:
             self.room.send("playInput", {"n": n}, player.sid)
             self.playing.wait()
         self.playphaseOngoing = True 
+        self.Handle(player)
+
 
     def discardphase(self, player):
         if len(player.hand) > player.handLimit:
             self.discardCardRequest(player, len(player.hand) - player.handLimit)
+        self.Handle(player)
+
 
     def battlephase(self, player):
+        self.Handle(player)
         pass
 
     def postturn(self, player):
+        self.Handle(player)
         self.resetCount()
 
 

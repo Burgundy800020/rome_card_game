@@ -31,7 +31,7 @@ class Player:
         return [card.toJson() for card in self.hand]
 
     #basic actions
-"""
+    """
     def draw(self,n):
         #chose cards from deck and initialize
         for i in range(n):

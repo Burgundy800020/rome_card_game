@@ -32,7 +32,7 @@ class GameManager:
 
     
     def reset(self):
-        pass   
+        pass
 
     def addPlayer(self, character, sid=""):
         player = Characters.characterList[Characters.nameList.index(character)](self, sid=sid)
@@ -71,10 +71,8 @@ class GameManager:
         self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
         self.discarding.set()
     
-    def discardCardRequest(self, character:Characters.Player, n):
-        self.discarding.clear()
+    def discardCardRequest(self, character:Characters.Player, n, next_event):
         self.room.send("discardInput", {"n": n}, character.sid)
-        self.discarding.wait()
         #receive call back from frontend and modify player's hand in backend
     
     #basic hp actions
@@ -167,25 +165,27 @@ class GameManager:
 
             return True
 
-    def Handle(e, self, player):
+    def Handle(self, player, e):
         match e:
-            case "prePhaseDone":
+            case "preturnDone":
                 self.drawphase(player)
             case "drawPhaseDone":
                 self.playphase(player)
-            case "playphaseDone":
+            case "playPhaseDone":
                 self.discardphase(player)
             case "discardPhaseDone":
                 self.battlephase(player)
             case "battlePhaseDone":
                 self.postturn(player)
+            case "postPhaseDone":
+                self.preturn(player.opp)
 
     def preturn(self, player):
         pass
 
     def drawphase(self, player):
         self.drawCard(player, 2)
-        self.Handle(player)
+        self.Handle(player, )
 
    
     def playphaseListen(self, data):

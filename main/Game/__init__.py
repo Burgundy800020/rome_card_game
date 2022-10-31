@@ -2,7 +2,7 @@ from random import shuffle, choices
 import threading
 import flask, flask_socketio
 
-from . import Card as c, Characters
+from . import Card as c, Characters, Unit as u
 #import Card, Characters
 
 
@@ -57,7 +57,7 @@ class GameManager:
         self.room.send("playerCard", {"hand":hand}, character.sid)
         self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
 
-    def discardCardListen(self, data):
+    def discardCardListen(self, data, next_event):
         sid = flask.request.sid
         character = self.room.clients[sid]
         #remove cards from player's hand
@@ -69,7 +69,8 @@ class GameManager:
         hand = character.handToJson()
         self.room.send("playerCard", {"hand":hand}, character.sid)
         self.room.send("opponentCard", {"n":len(hand)}, character.opp.sid)
-        self.discarding.set()
+        self.Handle(character, next_event)
+        
     
     def discardCardRequest(self, character:Characters.Player, n, next_event):
         self.room.send("discardInput", {"n": n}, character.sid)
@@ -95,6 +96,15 @@ class GameManager:
         #update hp to both players
         self.room.send("playerHp", {"hp": character.hp}, character.sid)
         self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
+
+    #basic unit actions
+    def restore(self, player, i, n):
+        unit = player.units[i]
+        player.unit.ap = min(unit.ap + n, unit.maxAp)
+        self.room.send("playerAp", {"ap": unit.ap, "i":i}, player.sid)
+        self.room.send("opponentAp", {"ap" : unit.ap, "i" : i}, player.opp.sid)
+
+
 
     #card effects
     def playCard(self, player: Characters.Player, card: c.Card):
@@ -180,56 +190,87 @@ class GameManager:
             case "postPhaseDone":
                 self.preturn(player.opp)
 
+    #preturn abilities
+    
+
     def preturn(self, player):
         pass
 
     def drawphase(self, player):
         self.drawCard(player, 2)
-        self.Handle(player, )
+        self.Handle(player, "drawPhaseDone")
 
-   
+    def playCard(self, player:Characters.Player, card: c.Card):
+        #todo: add card effects
+        self.Handle(player, "DrawPhaseDone")
+
     def playphaseListen(self, data):
         sid = flask.request.sid
         character = self.room.clients[sid]
         #input -1 if player wishes to end playphase
         n = data["n"]
-        if n < 0:
-            self.playphaseOngoing = False
-        else:
+        if n >= 0:
             card = character.hand[n]
             del character.hand[n]
             #show opponent which card were played
             self.room.send("opponentCard", {"n":len(character.hand)}, character.opp.sid)
             self.room.send("opponentPlayCard", {"card":card.toJson()}, character.opp.sid)
-            
             self.playCard(character, card)
-        self.playing.set()
-
+        else:
+            self.Handle(character, "playPhaseDone")
+            
+    #clears stack
     def playphase(self, player):
-        while self.playphaseOngoing:
-            self.playing.clear()
-            n = []
-            #check playable cards
-            for card in player.hand:
-                if self.checkCardAvailable(player, card):
-                    n.append(card)
-            if not len(n):
-                break
+        n = []
+        #check playable cards
+        for card in player.hand:
+            if self.checkCardAvailable(player, card):
+                n.append(card)
+        if len(n):
             self.room.send("playInput", {"n": n}, player.sid)
-            self.playing.wait()
-        self.playphaseOngoing = True 
-        self.Handle(player)
-
+        else:
+            self.Handle(player, "playPhaseDone")
+        
 
     def discardphase(self, player):
         if len(player.hand) > player.handLimit:
             self.discardCardRequest(player, len(player.hand) - player.handLimit)
         self.Handle(player)
 
+    def attack(self, player, main, aux=None):
+
+        
+        self.Handel(player, "battlePhaseDone")
+
+    def battlephaseListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        #input -1 if player wishes to end playphase
+        i = data["i"]
+        if i >= 0:
+            unit = character.units[i]
+            #select auxiliary unit
+            if isinstance(unit, u.Legionary):
+                m = []
+                for unit in character.units:
+                    if unit.type == u.AUX and unit.available:
+                        m.append(unit)
+            #show opponent which card were played
+            else:
+                self.attack(character, i)
+        else:
+            self.Handle(character, "battlePhaseDone")
 
     def battlephase(self, player):
-        self.Handle(player)
-        pass
+        n = []
+        for unit in player.units:
+            if unit.type == u.MAIN and unit.available:
+                n.append(unit)
+        if len(n):
+            self.room.send("battleInput", {"n": n}, player.sid)
+        else:
+            self.Handle(player, "battlePhaseDone")
+        
 
     def postturn(self, player):
         self.Handle(player)

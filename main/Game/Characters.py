@@ -41,7 +41,7 @@ class Player:
     def discard(self, n:list):
         n.sort(reverse=True)
         for i in n:
-            del self.hand[i]     """
+            del self.hand[i]     """ 
 
     def checkAvailableCards(self):
         #check available cards during play phase
@@ -123,6 +123,7 @@ class Crassus(Player):
 
     def __init__(self, game, **kwargs):
         super(Crassus, self).__init__(game, **kwargs)
+        self.handLimit = 5
         
 
 

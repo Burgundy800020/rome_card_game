@@ -104,6 +104,15 @@ class GameManager:
         self.room.send("playerAp", {"ap": unit.ap, "i":i}, player.sid)
         self.room.send("opponentAp", {"ap" : unit.ap, "i" : i}, player.opp.sid)
 
+    def remove(self, player, i, n):
+        unit = player.units[i]
+        if unit.ap > n:
+            unit.ap -= n
+            self.room.send("playerAp", {"ap": unit.ap, "i":i}, player.sid)
+            self.room.send("opponentAp", {"ap" : unit.ap, "i" : i}, player.opp.sid)
+        else:
+            del unit
+            
 
 
     #card effects
@@ -223,9 +232,9 @@ class GameManager:
     def playphase(self, player):
         n = []
         #check playable cards
-        for card in player.hand:
-            if self.checkCardAvailable(player, card):
-                n.append(card)
+        for i in range(len(player.hand)):
+            if self.checkCardAvailable(player, player.hand[i]):
+                n.append(i)
         if len(n):
             self.room.send("playInput", {"n": n}, player.sid)
         else:
@@ -237,35 +246,44 @@ class GameManager:
             self.discardCardRequest(player, len(player.hand) - player.handLimit)
         self.Handle(player)
 
-    def attack(self, player, main, aux=None):
+    def attack(self, player, main, aux=-1):
+        #todo: implement case-by-case attack logic
+        self.Handle(player, "battlePhaseDone")
 
-        
-        self.Handel(player, "battlePhaseDone")
+    def auxListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        main = data["main"]
+        aux = data["aux"]
+        self.attack(character, main, aux=aux)
 
+    #main, aux are the indices of the chosen units
     def battlephaseListen(self, data):
         sid = flask.request.sid
         character = self.room.clients[sid]
-        #input -1 if player wishes to end playphase
-        i = data["i"]
-        if i >= 0:
-            unit = character.units[i]
+        #input -1 if player does not with to attack
+        main = data["main"]
+        if main >= 0:
             #select auxiliary unit
-            if isinstance(unit, u.Legionary):
-                m = []
-                for unit in character.units:
-                    if unit.type == u.AUX and unit.available:
-                        m.append(unit)
-            #show opponent which card were played
+            if isinstance(character.units[i], u.Legionary):
+                n = []
+                for index in range(len(character.units)):
+                    if character.units[index].type == u.AUX and character.units[index].available:
+                        n.append(index)
+                if len(n):
+                    self.room.send("auxInput", {"n": n, "main" : main}, character.sid)
+                else:
+                    self.attack(character, main)
             else:
-                self.attack(character, i)
+                self.attack(character, main)
         else:
             self.Handle(character, "battlePhaseDone")
 
     def battlephase(self, player):
         n = []
-        for unit in player.units:
-            if unit.type == u.MAIN and unit.available:
-                n.append(unit)
+        for i in range(len(player.units)):
+            if player.units[i].type == u.MAIN and player.units[i].available:
+                n.append(i)
         if len(n):
             self.room.send("battleInput", {"n": n}, player.sid)
         else:

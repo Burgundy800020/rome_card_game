@@ -29,10 +29,8 @@ class GameManager:
         #listen to channels
         self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
         self.socketIO.on(f"{self.room.id}/playphase")(self.playphaseListen)
-
+        
     
-    def reset(self):
-        pass
 
     def addPlayer(self, character, sid=""):
         player = Characters.characterList[Characters.nameList.index(character)](self, sid=sid)
@@ -196,14 +194,75 @@ class GameManager:
                 self.battlephase(player)
             case "battlePhaseDone":
                 self.postturn(player)
-            case "postPhaseDone":
+            case "postTurnDone":
+                self.reset(player)
+            case "resetDone":
                 self.preturn(player.opp)
 
+    def reset(self, player):
+        for unit in player.units:
+            unit.available = True
+        #TODO: send new units
+        player.resetCount()
+        self.Handle(player, "resetDone")
+        
     #preturn abilities
-    
+
+    def tribalListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        n = data["n"]
+        if n == 1:
+            for unit in character.units:
+                #todo
+                pass
+        else:
+            self.Handle(character, "preTurnDone")
 
     def preturn(self, player):
-        pass
+        match player.name:
+            case "Caius Marius":
+                if len(player.hand) <= 2:
+                    self.drawCard(player, 3)
+                    self.heal(player, 1)         
+                    self.Handle(player, "postTurnDone")
+                else: 
+                    self.Handle(player, "prePhaseDone")
+            case "Marcus Tullius Cicero":
+                healingHP=0
+                revealedCard=[]
+                for card in range(len(player.units)):
+                    revealedCard.push(choices(self.deck, weights=self.weights, k=1).pop()())
+                    if(card.numeral%3==0):
+                        healingHP+=1
+                self.room.send("playerCard", {"Revealed card":revealedCard}, player.sid)#check syntax
+                if healingHP!=0:
+                    self.heal(player.sid, healingHP)
+
+            case "Marcus Licinius Crassus":
+                #insert character logic
+                self.discardphase(player)   
+            case "Caius Octavius":
+                if player.hp<=4:
+                    self.drawCard(player,1)
+                    self.heal(player, 1)
+
+                #insert character logic
+                self.battlephase(player)
+            case "Vercingetorix":
+                n = []
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Celtic) or player.units[i].type == u.AUX:
+                        n.append(i)
+                if len(n):
+                    self.room.send("tribalInput", {"n":n}, player.sid)
+                    
+                #insert character logic
+            case "Spartacus":
+                #insert character logic
+                self.postturn(player)
+    
+
 
     def drawphase(self, player):
         self.drawCard(player, 2)
@@ -291,6 +350,13 @@ class GameManager:
         
 
     def postturn(self, player):
+        match player.name:
+            case "Lucius Cornelius Sulla":
+                #insert character logic
+                self.drawphase(player)
+                self.postturn(player)
+                pass
+
         self.Handle(player)
         self.resetCount()
 

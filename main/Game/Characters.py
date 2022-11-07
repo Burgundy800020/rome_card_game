@@ -1,5 +1,5 @@
 from random import choices
-from . import Card as c
+from . import Card as c, Unit as u
 #import Card as c
 
 class Player:
@@ -26,7 +26,9 @@ class Player:
     def resetCount(self):
         #reset counters for item cards and strategy cards played during a turn
         self.itemPlayed = self.PoliticalPlayed = 0
-        
+    def unitsToJson(self):
+        return [unit.toJson() for unit in self.units]
+
     def handToJson(self):
         return [card.toJson() for card in self.hand]
 

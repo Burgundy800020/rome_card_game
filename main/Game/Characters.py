@@ -45,61 +45,6 @@ class Player:
         for i in n:
             del self.hand[i]     """ 
 
-    def checkAvailableCards(self):
-        #check available cards during play phase
-        for card in self.hand:
-            
-            if card.type == c.ITEM:
-
-                if self.itemPlayed >= self.itemLimit:
-                    card.available = False
-
-                elif isinstance(card, c.Shield):
-                    card.available = True if any([isinstance(unit, c.Legionary) for unit in self.units]) else False
-                
-                elif isinstance(card, c.Horse):
-                    card.available = True if any([isinstance(unit, c.Cavalry) for unit in self.units]) else False
-
-                elif isinstance(card, c.Arrows):
-                    card.available = True if any([isinstance(unit, c.Archery) for unit in self.units]) else False
-                
-                elif isinstance(card, c.Ration):
-                    card.available = True
-
-                elif isinstance(card, c.Aquilifer):
-                    card.available = True if len(self.units) else False
-
-            elif card.type == c.UNIT:
-                card.avaiable = False if len(self.units) >= 3 else True
-
-        
-            elif card.type == c.MILITARY:
-
-                if isinstance(card, c.Testudo):
-                    card.available = False
-
-                elif isinstance(card, c.Camp):
-                    card.available = True if len(self.units) else False
-
-                else:
-                    card.available = True
-
-            else: #remaining card type: political
-                if self.politicalPlayed >= self.politicalLimit:
-                    card.available = False
-
-                elif isinstance(card, c.Recrutement):
-                    card.available = False if len(self.units) >= 3 else True
-
-                elif isinstance(card, c.Rebellion):
-                    card.available = True if len(self.opp.units) and len(self.units) < 3 else False
-
-                elif isinstance(card, c.Veto):
-                    card.available = False
-
-                else:
-                    card.available = True  
-
 
     def toJson(self):
         return {"name":self.name}

@@ -50,6 +50,18 @@ class Cavalry(Unit):
         self.type = MAIN
         self.maxAp = 3
 
+class Elephant(Cavalry):
+    def __init__(self, ap=1, avail = False):
+        super(Elephant, self).__init__(self, ap, avail)
+        self.type = MAIN
+        self.maxAp = 3
+
+class Mounted_Archer(Unit):
+    def __init__(self, ap=1, avail = False):
+        super(Mounted_Archer, self).__init__(self, ap, avail)
+        self.type = MAIN
+        self.maxAp = 3
+
 class Archery(Unit):
     def __init__(self, ap=1, avail = False):
         super(Archery, self).__init__(self, ap, avail)

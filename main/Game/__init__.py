@@ -25,7 +25,6 @@ class GameManager:
         self.discarding = threading.Event()
         self.playing = threading.Event()
 
-
         #listen to channels
         self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
         self.socketIO.on(f"{self.room.id}/playphase")(self.playphaseListen)
@@ -44,7 +43,6 @@ class GameManager:
         return [character.name for character in characterChoices]
     
     #Basic card actions
-
     def drawCard(self, character:Characters.Player, n):
         #modify player's hand in backend
         for i in range(n):
@@ -70,7 +68,7 @@ class GameManager:
         self.Handle(character, next_event)
         
     
-    def discardCardRequest(self, character:Characters.Player, n, next_event):
+    def discardCard(self, character:Characters.Player, n, next_event):
         self.room.send("discardInput", {"n": n}, character.sid)
         #receive call back from frontend and modify player's hand in backend
     
@@ -207,17 +205,23 @@ class GameManager:
         self.Handle(player, "resetDone")
         
     #preturn abilities
+    #-------------------------------------------------------------------------------------
 
     def tribalListen(self, data):
         sid = flask.request.sid
         character = self.room.clients[sid]
         n = data["n"]
         if n == 1:
+            cardNum = 0
             for unit in character.units:
-                #todo
-                pass
+                if isinstance(unit, u.Celtic) or unit.type == u.AUX:
+                    cardNum += 1
+                    self.remove(u ,1)
+            self.drawCard(character, cardNum)
+            self.Handle(character, "preTurnDone")
         else:
             self.Handle(character, "preTurnDone")
+    #-------------------------------------------------------------------------------------
 
     def preturn(self, player):
         match player.name:
@@ -228,27 +232,30 @@ class GameManager:
                     self.Handle(player, "postTurnDone")
                 else: 
                     self.Handle(player, "prePhaseDone")
+
             case "Marcus Tullius Cicero":
                 healingHP=0
-                revealedCard=[]
-                for card in range(len(player.units)):
-                    revealedCard.push(choices(self.deck, weights=self.weights, k=1).pop()())
-                    if(card.numeral%3==0):
-                        healingHP+=1
-                self.room.send("playerCard", {"Revealed card":revealedCard}, player.sid)#check syntax
+                n=[]
+                for i in range(len(player.units)):
+                    if player.units[i].type == u.MAIN: 
+                        card = choices(self.deck, weights=self.weights, k=1).pop()()
+                        n.push(card)
+                        if(card.numeral%3==0):
+                            healingHP+=1
+                self.room.send("RevealCard", {"n":n}, player.sid)
                 if healingHP!=0:
                     self.heal(player.sid, healingHP)
-
-            case "Marcus Licinius Crassus":
-                #insert character logic
-                self.discardphase(player)   
+                self.Handle(player, "prePhaseDone")
+ 
             case "Caius Octavius":
                 if player.hp<=4:
                     self.drawCard(player,1)
                     self.heal(player, 1)
 
-                #insert character logic
+                #finish logic
                 self.battlephase(player)
+                self.Handle(player, "prePhaseDone")
+
             case "Vercingetorix":
                 n = []
                 for i in range(len(player.units)):
@@ -261,7 +268,10 @@ class GameManager:
             case "Spartacus":
                 #insert character logic
                 self.postturn(player)
-    
+            case _:
+                self.Handle(player, "prePhaseDone")
+
+
 
 
     def drawphase(self, player):
@@ -287,7 +297,7 @@ class GameManager:
         else:
             self.Handle(character, "playPhaseDone")
             
-    #clears stack
+    
     def playphase(self, player):
         n = []
         #check playable cards

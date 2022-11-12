@@ -17,13 +17,6 @@ class GameManager:
         self.players = []
         self.currentPlayer = False
 
-        #game
-        self.playphaseOngoing = True
-
-        #events
-        self.playingTurn = threading.Event()
-        self.discarding = threading.Event()
-        self.playing = threading.Event()
 
         #listen to channels
         self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
@@ -94,18 +87,20 @@ class GameManager:
         self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
 
     #basic unit actions
-    def restore(self, player, i, n):
+    def restore(self, player:Characters.Player, i, n):
         unit = player.units[i]
         player.unit.ap = min(unit.ap + n, unit.maxAp)
-        self.room.send("playerAp", {"ap": unit.ap, "i":i}, player.sid)
-        self.room.send("opponentAp", {"ap" : unit.ap, "i" : i}, player.opp.sid)
+        units = player.unitsToJson()
+        self.room.send("playerUnits", {"unit": units, "i":i}, player.sid)
+        self.room.send("opponentUnits", {"unit" : units, "i" : i}, player.opp.sid)
 
-    def remove(self, player, i, n):
+    def remove(self, player:Characters.Player, i, n):
         unit = player.units[i]
         if unit.ap > n:
             unit.ap -= n
-            self.room.send("playerAp", {"ap": unit.ap, "i":i}, player.sid)
-            self.room.send("opponentAp", {"ap" : unit.ap, "i" : i}, player.opp.sid)
+            units = player.unitsToJson()
+            self.room.send("playerUnits", {"unit": units, "i":i}, player.sid)
+            self.room.send("opponentUnits", {"unit" : units, "i" : i}, player.opp.sid)
         else:
             del unit
             
@@ -182,7 +177,7 @@ class GameManager:
 
     def Handle(self, player, e):
         match e:
-            case "preturnDone":
+            case "preTurnDone":
                 self.drawphase(player)
             case "drawPhaseDone":
                 self.playphase(player)
@@ -231,7 +226,7 @@ class GameManager:
                     self.heal(player, 1)         
                     self.Handle(player, "postTurnDone")
                 else: 
-                    self.Handle(player, "prePhaseDone")
+                    self.Handle(player, "PreTurnDone")
 
             case "Marcus Tullius Cicero":
                 healingHP=0
@@ -245,7 +240,7 @@ class GameManager:
                 self.room.send("RevealCard", {"n":n}, player.sid)
                 if healingHP!=0:
                     self.heal(player.sid, healingHP)
-                self.Handle(player, "prePhaseDone")
+                self.Handle(player, "preTurnDone")
  
             case "Caius Octavius":
                 if player.hp<=4:
@@ -254,7 +249,7 @@ class GameManager:
 
                 #finish logic
                 self.battlephase(player)
-                self.Handle(player, "prePhaseDone")
+                self.Handle(player, "preTurnDone")
 
             case "Vercingetorix":
                 n = []
@@ -269,7 +264,7 @@ class GameManager:
                 #insert character logic
                 self.postturn(player)
             case _:
-                self.Handle(player, "prePhaseDone")
+                self.Handle(player, "preTurnDone")
 
 
 
@@ -313,7 +308,7 @@ class GameManager:
     def discardphase(self, player):
         if len(player.hand) > player.handLimit:
             self.discardCardRequest(player, len(player.hand) - player.handLimit)
-        self.Handle(player)
+        
 
     def attack(self, player, main, aux=-1):
         #todo: implement case-by-case attack logic
@@ -325,7 +320,7 @@ class GameManager:
         main = data["main"]
         aux = data["aux"]
         self.attack(character, main, aux=aux)
-
+                
     #main, aux are the indices of the chosen units
     def battlephaseListen(self, data):
         sid = flask.request.sid
@@ -334,7 +329,7 @@ class GameManager:
         main = data["main"]
         if main >= 0:
             #select auxiliary unit
-            if isinstance(character.units[i], u.Legionary):
+            if isinstance(character.units[main], u.Legionary):
                 n = []
                 for index in range(len(character.units)):
                     if character.units[index].type == u.AUX and character.units[index].available:
@@ -369,7 +364,6 @@ class GameManager:
 
         self.Handle(player)
         self.resetCount()
-
 
 if __name__ == "__main__":
     g = GameManager()

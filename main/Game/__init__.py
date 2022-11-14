@@ -1,5 +1,4 @@
 from random import shuffle, choices
-import threading
 import flask, flask_socketio
 
 from . import Card as c, Characters, Unit as u
@@ -16,7 +15,6 @@ class GameManager:
         self.weights = [1,1,1]
         self.players = []
         self.currentPlayer = False
-
 
         #listen to channels
         self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
@@ -91,40 +89,158 @@ class GameManager:
         unit = player.units[i]
         player.unit.ap = min(unit.ap + n, unit.maxAp)
         units = player.unitsToJson()
-        self.room.send("playerUnits", {"unit": units, "i":i}, player.sid)
-        self.room.send("opponentUnits", {"unit" : units, "i" : i}, player.opp.sid)
+        self.room.send("playerUnits", {"units": units}, player.sid)
+        self.room.send("opponentUnits", {"units" : units}, player.opp.sid)
 
     def remove(self, player:Characters.Player, i, n):
         unit = player.units[i]
         if unit.ap > n:
             unit.ap -= n
-            units = player.unitsToJson()
-            self.room.send("playerUnits", {"unit": units, "i":i}, player.sid)
-            self.room.send("opponentUnits", {"unit" : units, "i" : i}, player.opp.sid)
         else:
             del unit
-            
+        units = player.unitsToJson()
+        self.room.send("playerUnits", {"units": units}, player.sid)
+        self.room.send("opponentUnits", {"units" : units}, player.opp.sid)
+    
 
+    #listen to playCard
+    #--------------------------------------------------------------------------------------------        
+    def boosterListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        i = data["i"]
+        self.restore(character, i, 1)
+    
+    def aquiliferListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        i = data["i"]
+        character.units[i].available = True
+        units = character.unitsToJson()
+        self.room.send("playerUnits", {"units": units}, character.sid)
+        self.room.send("opponentUnits", {"units" : units}, character.opp.sid)
+      
+
+    #--------------------------------------------------------------------------------------------------
 
     #card effects
     def playCard(self, player: Characters.Player, card: c.Card):
         if card.type == c.ITEM:
-            pass
+            n = []
+            match card.name:
+                case "ration":
+                    self.heal(player, 2)
+                case "shield":
+                    for i in range(len(player.units)):
+                        if isinstance(player.units[i], u.Legionary):
+                            n.append(i)
+                    self.room.send("boosterInput", {"n": n}, player.sid)
+                case "arrow":
+                    for i in range(len(player.units)):
+                        if isinstance(player.units[i], u.Archery):
+                            n.append(i)
+                    self.room.send("boosterInput", {"n": n}, player.sid)
+                case "horse":
+                    for i in range(len(player.units)):
+                        if isinstance(player.units[i], u.Cavalry):
+                            n.append(i)
+                    self.room.send("boosterInput", {"n": n}, player.sid)
+                case "aquilifer":
+                    for i in range(len(player.units)):
+                        if not player.units[i].available:
+                            n.append(i)
+                    self.room.send("aquiliferInput", {"n": n}, player.sid)  
+
         elif card.type == c.UNIT:
-            pass
+            match card.name:
+                case "legionary":
+                    match player.name:
+                        case "Caius Marius":
+                            unit = u.Legionary(ap = 3, avail=True)
+                        case "Spartacus":
+                            unit = u.Gladiator()
+                        case "Vercingetorix":
+                            unit = u.Celtic()
+                        case "Mithridates":
+                            unit = u.Phalanx()  
+                        case _:
+                            unit = u.Legionary()
+                case "cavalry":
+                    if player.name == "Hannibal Barca":
+                        unit = u.Elephant()
+                    else:
+                        unit = u.Cavalry()  
+                case "archery":
+                    if player.name == "Surena":
+                        unit = u.Mounted_Archer()
+                    else:
+                        unit = u.Archery()  
+                case "velite":
+                    unit = u.Velite()
+                case "slinger":
+                    unit = u.Slinger()                    
+            player.units.append(unit)
+            units = player.unitsToJson()
+            self.room.send("playerUnits", {"units": units}, player.sid)
+            self.room.send("opponentUnits", {"units": units}, player.opp.sid)
+            
         elif card.type == c.MILITARY:
-            if isinstance(card, c.Barbarian_Invasion):
-                n = []
-                for unit in player.opp.units:
-                    if unit.ap == 1:
-                        n.append(unit)
-                self.room.send("opponentUnitInput", {"n": n}, player.sid)            
+            for card in player.opp.card:
+                if card.name=="testudo":
+                    self.room.send("testudoInput", player.opp.sid)
+                    break
+                         
+            n = []
+            match card.name:
+                case "barbarian_invasion":
+                
+                    for i in range(len(player.opp.units)):
+                        if player.opp.units[i].ap == 1:
+                            n.append(i)
+                    self.room.send("barbarianInput", {"n": n}, player.sid)
+              
+                case "campement":
+                    for i in range(len(player.opp.units)):
+                        n.append(i)
+                    self.room.send("campmentInput", {"n": n}, player.sid)
+                    
+                case "siege":
+                    card = choices(self.deck, weights=self.weights, k=1).pop()()
+                    self.room.send("revealCard", {"card":card}, player.sid)
+                    if card.numeral%3!=0:
+                        player.sieged=True
+                case "onager":
+                    card = choices(self.deck, weights=self.weights, k=1).pop()()
+                    self.room.send("revealCard", {"card":card}, player.sid)
+                    if card.numeral%3!=0:
+                        self.dealDamage(player.opp, 2)
+                case "reinforcement":
+                    self.drawCard(player, 2)
+              
+
+        elif card.type == c.POLITICAL:
+            match card.name:
+                case "senatus_consultum_ultimum":
+                    self.room.send("senatusInput", {"n": n}, player.sid)
+                    
+                    pass
+                case "veto":
+                    pass
+                case "land_redistribution":
+                    pass
+                case "panem_et_circenses":
+                    pass
+                case "urban_construction":
+                    pass
+                case "magistrature_election":
+                    pass
+                
         else:
             pass
 
     #basic play actions
 
-    def checkCardAvailable(self, player, card):
+    def checkCardAvailable(self, player:Characters.Player, card:c.Card):
         #check available cards during play phase            
         if card.type == c.ITEM:
 
@@ -147,7 +263,7 @@ class GameManager:
                 return True if len(player.units) else False
 
         elif card.type == c.UNIT:
-            card.avaiable = False if len(player.units) >= 3 else True
+            return False if len(player.units) >= 3 else True
 
     
         elif card.type == c.MILITARY:
@@ -226,18 +342,16 @@ class GameManager:
                     self.heal(player, 1)         
                     self.Handle(player, "postTurnDone")
                 else: 
-                    self.Handle(player, "PreTurnDone")
+                    self.Handle(player, "preTurnDone")
 
             case "Marcus Tullius Cicero":
                 healingHP=0
-                n=[]
                 for i in range(len(player.units)):
                     if player.units[i].type == u.MAIN: 
                         card = choices(self.deck, weights=self.weights, k=1).pop()()
-                        n.push(card)
+                        self.room.send("revealCard", {"card":card}, player.sid)
                         if(card.numeral%3==0):
                             healingHP+=1
-                self.room.send("RevealCard", {"n":n}, player.sid)
                 if healingHP!=0:
                     self.heal(player.sid, healingHP)
                 self.Handle(player, "preTurnDone")
@@ -275,7 +389,7 @@ class GameManager:
 
     def playCard(self, player:Characters.Player, card: c.Card):
         #todo: add card effects
-        self.Handle(player, "DrawPhaseDone")
+        self.Handle(player, "drawPhaseDone")
 
     def playphaseListen(self, data):
         sid = flask.request.sid
@@ -291,8 +405,7 @@ class GameManager:
             self.playCard(character, card)
         else:
             self.Handle(character, "playPhaseDone")
-            
-    
+
     def playphase(self, player):
         n = []
         #check playable cards
@@ -358,8 +471,7 @@ class GameManager:
         match player.name:
             case "Lucius Cornelius Sulla":
                 #insert character logic
-                self.drawphase(player)
-                self.postturn(player)
+                
                 pass
 
         self.Handle(player)

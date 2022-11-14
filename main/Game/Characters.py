@@ -31,10 +31,6 @@ class Player:
 
     def handToJson(self):
         return [card.toJson() for card in self.hand]
-
-    def unitsToJson(self):
-        return [unit.toJson() for unit in self.units]
-
     #basic actions
     """
     def draw(self,n):

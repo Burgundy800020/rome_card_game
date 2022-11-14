@@ -50,14 +50,14 @@ class Player:
 
 class Marius(Player):
 
-    name = "Caius Marius"
+    name = "Marius"
 
     def __init__(self, game, **kwargs):
         super(Marius, self).__init__(game, **kwargs)
         
 class Sulla(Player):
 
-    name = "Lucius Cornelius Sulla"
+    name = "Sulla"
 
     def __init__(self, game, **kwargs):
         super(Sulla, self).__init__(game, **kwargs)
@@ -65,7 +65,7 @@ class Sulla(Player):
 
 class Crassus(Player):
 
-    name = "Marcus Licinius Crassus"
+    name = "Crassus"
 
     def __init__(self, game, **kwargs):
         super(Crassus, self).__init__(game, **kwargs)
@@ -75,7 +75,7 @@ class Crassus(Player):
 
 class Caesar(Player):
     
-    name = "Caius Julius Caesar" 
+    name = "Caesar" 
 
 
     def __init__(self, game, **kwargs):
@@ -85,7 +85,7 @@ class Caesar(Player):
 
 class Pompeius(Player):
     
-    name = "Gnaeus Pompeius Magnus" 
+    name = "Magnus" 
 
     def __init__(self, game, **kwargs):
         super(Pompeius, self).__init__(game, **kwargs)

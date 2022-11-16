@@ -31,19 +31,6 @@ class Player:
 
     def handToJson(self):
         return [card.toJson() for card in self.hand]
-    #basic actions
-    """
-    def draw(self,n):
-        #chose cards from deck and initialize
-        for i in range(n):
-            card = choices(self.deck, weights=self.weights, k=1).pop()()
-            self.hand.append(card)
-
-    def discard(self, n:list):
-        n.sort(reverse=True)
-        for i in n:
-            del self.hand[i]     """ 
-
 
     def toJson(self):
         return {"name":self.name}
@@ -61,7 +48,13 @@ class Sulla(Player):
 
     def __init__(self, game, **kwargs):
         super(Sulla, self).__init__(game, **kwargs)
-        
+
+class Cicero(Player):
+
+    name = "Cicero"
+
+    def __init__(self, game, **kwargs):
+        super(Cicero, self).__init__(game, **kwargs)
 
 class Crassus(Player):
 
@@ -70,8 +63,6 @@ class Crassus(Player):
     def __init__(self, game, **kwargs):
         super(Crassus, self).__init__(game, **kwargs)
         self.handLimit = 5
-        
-
 
 class Caesar(Player):
     
@@ -80,8 +71,6 @@ class Caesar(Player):
 
     def __init__(self, game, **kwargs):
         super(Caesar, self).__init__(game, **kwargs)
-
-
 
 class Pompeius(Player):
     

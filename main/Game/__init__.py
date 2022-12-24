@@ -1,9 +1,11 @@
 from random import shuffle, choices
 import flask, flask_socketio
 
-import Card as c, Characters, Unit as u
+#import Card as c, Characters, Unit as u
 #import Card, Characters
-
+from . import Card as c
+from . import Characters
+from . import Unit as u
 
 
 class GameManager:

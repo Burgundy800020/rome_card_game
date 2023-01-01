@@ -180,4 +180,5 @@ def disconnect():
             break
 
 if __name__ == "__main__":
-    socketIO.run(server, host="0.0.0.0")
+    1
+    #socketIO.run(server, host="0.0.0.0")

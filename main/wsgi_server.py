@@ -8,22 +8,22 @@ server = flask.Flask(__name__)
 socketIO = flask_socketio.SocketIO(server)
 
 class Room:
-    def __init__(self, id, public=False, _eventCallback=None):
+    def __init__(self, id, public=False, occupied=True, _eventCallback=None):
         self.id = id
         self.public = public #room visibility for players looking for an opponent
         self._eventCallback = _eventCallback #internal variable
         self.clients = {} #dictionnary: sid maps to character object
+        self.occupied = occupied #new clients may be directed to this room
 
         #initialize game instance
         self.game = Game.GameManager(self, socketIO)
 
-        """socketIO.on(f"{id}/drawCard")(self.drawCard)
-        socketIO.on(f"{id}/discardCard")(self.discardCard)"""
         socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
     
     def addClient(self, sid):
         #cannot add more than 2 players
-        if len(self.clients) < 2:
+        if not self.occupied and len(self.clients) < 2:
+            self.occupied = True
             self.clients[sid] = None
         else:
             return "FULL"
@@ -73,42 +73,33 @@ class Room:
 
             self.game.play()
     
-    #using the drawCard method in gameManager
-    """
-    def drawCard(self, data):
-        #draw a given number of card for a given character and return hand
-        sid = flask.request.sid
-        character = self.clients[sid]
-        character.draw(data["n"])
-
-        #inform opponent about the number of card left in hand
-        hand = character.handToJson()
-        self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
-        return hand
-
-    def discardCard(self, data):
-        #given an array of cards indexes, delete the cards correponding to the indexes
-        sid = flask.request.sid
-        character = self.clients[sid]
-        character.discard(data["n"])
-        
-        hand = character.handToJson()
-        self.send("opponentCard", {"n":len(hand)}, character.opp.sid)
-        return hand
-    """
-
     def close(self):
-        socketIO.close_room(f"{id}/drawCard")
+        #remove all clients in present room by clearing client dictionary
+        self.clients.clear()
+        liberateRoom(self)
 
 #-----------------SERVER-----------------
 allRooms = {}
+freeRoom = []
+queue = [] #new players waiting for a room
 generateID = lambda: str(uuid.uuid1())
+
+def liberateRoom(room):
+    room.occupied = False #make room visible
+    freeRoom.append(room.id)
+
+    if len(queue): #tell next player in queue that the room just got liberated
+        player = queue.pop(0)
+        player.set()
 
 @server.route("/")
 def default():
-    return "<center><h1>Roman-Card-Game Server</h1></center>"
+    return """
+        <center><h1>Roman-Card-Game Server</h1></center>
+        <center>Running Status : Normal</center>
+        """
 
-@server.route("/createRoom")
+"""@server.route("/createRoom")
 def createRoom():
     #try to find a match for public room
     if flask.request.form["public"] == "true":
@@ -127,31 +118,98 @@ def createRoom():
             return id #return id of room
 
     else:
-        if len(allRooms) >= 100:return "FULL" #no more space for another room
+        if len(allRooms) >= 50:return "FULL" #no more space for another room
 
         #generate random string as room number, for example
         #741f8bd1-13a6-11ed-86a8-b05adaee0887
         id = generateID() 
         allRooms[id] = Room(id, public=False)
-        return id
+        return id"""
+
+@server.route("/createRoom")
+def createRoom():
+    if flask.request.form["public"] == "true":
+        for id, room in allRooms.items():
+            if room.public: #there exists an open public room
+                room.public = False #close public room as it is taken
+                room.occupied = True
+                room._eventCallback.set()
+                return room.id
+        
+        else: #no public room open, search for unoccupied room
+            if len(freeRoom):
+                room = freeRoom.pop()
+
+                event = threading.Event()
+                room._eventCallback = event #prepare room and make it detectable to other public players
+                room.occupied = True
+                room.public = True
+
+                #wait till another user joins the empty room to return new room's id
+                event.wait()
+                return id #return id of room
+            
+            else: #no public room, no unoccupied room
+                if len(allRooms) >= 50:
+                    event = threading.Event()
+                    queue.append(event) #add to queue. when a room is liberated, join the room
+
+                    event.wait() #an unoccupied room is now available
+                    room = freeRoom.pop()
+
+                    event = threading.Event()
+                    room = allRooms[id]
+                    room._eventCallback = event #prepare room and make it detectable to other public players
+                    room.public = True
+                    room.occupied = True
+
+                    event.wait()
+                    return room.id
+
+                else: #if room limit not exceeded, create new public room
+                    id = generateID()
+                    event = threading.Event()
+                    allRooms[id] = Room(id, public=True, _eventCallback=event)
+
+                    #wait till another user joins the empty room to return new room's id
+                    event.wait()
+                    return id #return id of room
+
+    else: #create private room
+        if len(freeRoom): #search for unoccupied room
+            room = freeRoom.pop()
+            room.occupied = True
+            return room.id
+
+        else:
+            if len(allRooms) >= 50:
+                event = threading.Event()
+                queue.append(event) #add to queue. when a room is liberated, join the room
+
+                event.wait() #take the freed room
+                room = freeRoom.pop()
+
+                room.public = False
+                return room.id
+
+            else: #if room limit not exceeded, create new private room
+                id = generateID()
+                event = threading.Event()
+                allRooms[id] = Room(id, public=False)
+
+                return id
 
 @server.route("/clean", methods=["GET", "POST"])
 def clean():
     for room in allRooms.values():
         room.close()
-    allRooms.clear()
     return ""
 
-@server.route("/deleteRoom")
-def deleteRoom():
+@server.route("/closeRoom")
+def closeRoom():
     id = flask.request.data["id"]
     allRooms[id].close()
-    del allRooms[id]
     return ""
-
-@server.route("/openRooms")
-def openRooms():
-    return str(len(allRooms))
 
 @server.route("/userInRoom")
 def userInRoom():

@@ -187,53 +187,52 @@ class GameManager:
 #-----------------------------------------------------------------------------
     def playMilitary(self, player:Characters.Player, card : c.Card):
         n = []
-        match card.name:
-            case "barbarian_invasion":
-                for i in range(len(player.opp.units)):
-                    if player.opp.units[i].ap == 1:
-                        n.append(i)
-                self.room.send("barbarianInput", {"n": n}, player.sid)
-                return
-
-            case "camp":
-                for i in range(len(player.opp.units)):
+        if card.name == "barbarian_invasion":
+            for i in range(len(player.opp.units)):
+                if player.opp.units[i].ap == 1:
                     n.append(i)
-                self.room.send("campInput", {"n": n}, player.sid)
-                return
+            self.room.send("barbarianInput", {"n": n}, player.sid)
+            return
 
-            case "siege":
-                revealed = self.reveal(player)
-                if revealed.numeral%3!=0:
-                    player.opp.sieged=True
-                
-            case "onager":
-                revealed = self.reveal(player)
-                if revealed.numeral%3!=0:
-                    self.dealDamage(player.opp, 2)
-                
-            case "reinforcement":
-                self.drawCard(player, 2)
+        elif card.name == "camp":
+            for i in range(len(player.opp.units)):
+                n.append(i)
+            self.room.send("campInput", {"n": n}, player.sid)
+            return
+
+        elif card.name == "siege":
+            revealed = self.reveal(player)
+            if revealed.numeral%3!=0:
+                player.opp.sieged=True
+            
+        elif card.name == "onager":
+            revealed = self.reveal(player)
+            if revealed.numeral%3!=0:
+                self.dealDamage(player.opp, 2)
+            
+        elif card.name == "reinforcement":
+            self.drawCard(player, 2)
                 
         self.Handle(player, "drawPhaseDone")
 
     def playPolitical(self, player:Characters.Player, card:c.Card):
-        match card.name:
-            case "senatus_consultum_ultimum":
-                self.room.send("senatusInput",{}, player.opp.sid)
-                return
+        
+        if card.name == "senatus_consultum_ultimum":
+            self.room.send("senatusInput",{}, player.opp.sid)
+            return
 
-            case "land_redistribution":
-                player.hand.clear()
-                self.drawCard(player, len(player.opp.hand))
+        elif card.name == "land_redistribution":
+            player.hand.clear()
+            self.drawCard(player, len(player.opp.hand))
 
-            case "panem_et_circenses":
-                revealed = self.reveal(player)
-                if revealed.numeral %3!=0:
-                    player.opp.panemed = True
+        elif card.name ==  "panem_et_circenses":
+            revealed = self.reveal(player)
+            if revealed.numeral %3!=0:
+                player.opp.panemed = True
 
-            case "urban_construction":
-                self.discardCard(player, 1, "urbanConstruction")
-                return     
+        elif card.name == "urban_construction":
+            self.discardCard(player, 1, "urbanConstruction")
+            return     
 
         self.Handle(player, "drawPhaseDone")
         
@@ -241,64 +240,63 @@ class GameManager:
         if card.type == c.ITEM:
             player.itemPlayed += 1
             n = []
-            match card.name:
-                case "ration":
-                    self.heal(player, 2)
-                case "shield":
-                    for i in range(len(player.units)):
-                        if isinstance(player.units[i], u.Legionary):
-                            n.append(i)
-                    self.room.send("boosterInput", {"n": n}, player.sid)
-                case "arrow":
-                    for i in range(len(player.units)):
-                        if isinstance(player.units[i], u.Archery):
-                            n.append(i)
-                    self.room.send("boosterInput", {"n": n}, player.sid)
-                case "horse":
-                    for i in range(len(player.units)):
-                        if isinstance(player.units[i], u.Cavalry):
-                            n.append(i)
-                    self.room.send("boosterInput", {"n": n}, player.sid)
-                case "aquilifer":
-                    for i in range(len(player.units)):
-                        if not player.units[i].available:
-                            n.append(i)
-                    self.room.send("aquiliferInput", {"n": n}, player.sid)  
+            
+            if card.name == "ration":
+                self.heal(player, 2)
+            elif card.name == "shield":
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Legionary):
+                        n.append(i)
+                self.room.send("boosterInput", {"n": n}, player.sid)
+            elif card.name == "arrow":
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Archery):
+                        n.append(i)
+                self.room.send("boosterInput", {"n": n}, player.sid)
+            elif card.name == "horse":
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Cavalry):
+                        n.append(i)
+                self.room.send("boosterInput", {"n": n}, player.sid)
+            elif card.name == "aquilifer":
+                for i in range(len(player.units)):
+                    if not player.units[i].available:
+                        n.append(i)
+                self.room.send("aquiliferInput", {"n": n}, player.sid)  
 
         elif card.type == c.UNIT:
-            match card.name:
-                case "legionary":
-                    match player.name:
-                        case "Marius":
-                            unit = u.Legionary(ap = 3, avail=True)
-                        case "Spartacus":
-                            unit = u.Gladiator()
-                        case "Vercingetorix":
-                            unit = u.Celtic()
-                        case "Mithridates":
-                            unit = u.Phalanx()  
-                        case _:
-                            unit = u.Legionary()
-                case "cavalry":
-                    if player.name == "Hannibal":
-                        unit = u.Elephant()
-                    else:
-                        unit = u.Cavalry()  
-                case "archery":
-                    if player.name == "Surena":
-                        unit = u.Mounted_Archer()
-                    else:
-                        unit = u.Archery()  
-                case "velite":
-                    unit = u.Velite()
-                    if isinstance(player, Characters.Marius):
-                        unit.available = True
-                        unit.ap = 2
-                case "slinger":
-                    unit = u.Slinger()
-                    if isinstance(player, Characters.Marius):
-                        unit.available = True
-                        unit.ap = 2                    
+            
+            if card.name == "legionary":
+                if player.name == "Marius":
+                    unit = u.Legionary(ap = 3, avail=True)
+                elif player.name == "Spartacus":
+                    unit = u.Gladiator()
+                elif player.name == "Vercingetorix":
+                    unit = u.Celtic()
+                elif player.name == "Mithridates":
+                    unit = u.Phalanx()  
+                else:
+                    unit = u.Legionary()
+            if card.name == "cavalry":
+                if player.name == "Hannibal":
+                    unit = u.Elephant()
+                else:
+                    unit = u.Cavalry()  
+            if card.name == "archery":
+                if player.name == "Surena":
+                    unit = u.Mounted_Archer()
+                else:
+                    unit = u.Archery()  
+            if card.name == "velite":
+                unit = u.Velite()
+                if isinstance(player, Characters.Marius):
+                    unit.available = True
+                    unit.ap = 2
+            if card.name == "slinger":
+                unit = u.Slinger()
+                if isinstance(player, Characters.Marius):
+                    unit.available = True
+                    unit.ap = 2                    
             player.units.append(unit)
             self.updateUnits(player)
 
@@ -378,23 +376,22 @@ class GameManager:
             return True
 
     def Handle(self, player, e):
-        match e:
-            case "preTurnDone":
-                self.drawphase(player)
-            case "drawPhaseDone":
-                self.playphase(player)
-            case "playPhaseDone":
-                self.discardphase(player)
-            case "discardPhaseDone":
-                self.battlephase(player)
-            case "battlePhaseDone":
-                self.postturn(player)
-            case "postTurnDone":
-                self.reset(player)
-            case "resetDone":
-                self.preturn(player.opp)
-            case "urbanConstruction":
-                self.urbanListen(player)
+        if e == "preTurnDone":
+            self.drawphase(player)
+        elif e == "drawPhaseDone":
+            self.playphase(player)
+        elif e == "playPhaseDone":
+            self.discardphase(player)
+        elif e == "discardPhaseDone":
+            self.battlephase(player)
+        elif e == "battlePhaseDone":
+            self.postturn(player)
+        elif e == "postTurnDone":
+            self.reset(player)
+        elif e == "resetDone":
+            self.preturn(player.opp)
+        elif e == "urbanConstruction":
+            self.urbanListen(player)
 
     def reset(self, player:Characters.Player):
         for unit in player.units:
@@ -422,41 +419,40 @@ class GameManager:
     #-------------------------------------------------------------------------------------
 
     def preturn(self, player):
-        match player.name:
-            case "Caius Marius":
-                if len(player.hand) <= 2:
-                    self.drawCard(player, 3)
-                    self.heal(player, 1)         
-                    self.Handle(player, "postTurnDone")
-                    return
+        if player.name == "Caius Marius":
+            if len(player.hand) <= 2:
+                self.drawCard(player, 3)
+                self.heal(player, 1)         
+                self.Handle(player, "postTurnDone")
+                return
 
-            case "Cicero":
-                healingHP=0
-                for i in range(len(player.units)):
-                    if player.units[i].type == u.MAIN: 
-                        card = self.reveal(player)
-                        if(card.numeral%3==0):
-                            healingHP+=1
-                if healingHP!=0:
-                    self.heal(player.sid, healingHP)
+        elif player.name == "Cicero":
+            healingHP=0
+            for i in range(len(player.units)):
+                if player.units[i].type == u.MAIN: 
+                    card = self.reveal(player)
+                    if(card.numeral%3==0):
+                        healingHP+=1
+            if healingHP!=0:
+                self.heal(player.sid, healingHP)
+            
+        elif player.name == "Octavius":
+            if player.hp<=4:
+                self.drawCard(player,1)
+                self.heal(player, 1)
+
+        elif player.name == "Vercingetorix":
+            n = []
+            for i in range(len(player.units)):
+                if isinstance(player.units[i], u.Celtic) or player.units[i].type == u.AUX:
+                    n.append(i)
+            if len(n):
+                self.room.send("tribalInput", {"n":n}, player.sid)
+                return
                 
-            case "Octavius":
-                if player.hp<=4:
-                    self.drawCard(player,1)
-                    self.heal(player, 1)
-
-            case "Vercingetorix":
-                n = []
-                for i in range(len(player.units)):
-                    if isinstance(player.units[i], u.Celtic) or player.units[i].type == u.AUX:
-                        n.append(i)
-                if len(n):
-                    self.room.send("tribalInput", {"n":n}, player.sid)
-                    return
-                    
-            case "Spartacus":
-                pass
-                #insert character logic
+        elif player.name == "Spartacus":
+            pass
+            #insert character logic
                     
         self.Handle(player, "preTurnDone")
 
@@ -545,10 +541,9 @@ class GameManager:
             self.Handle(player, "battlePhaseDone")
 
     def postturn(self, player):
-        match player.name:
-            case "Sulla":
-                #insert character logic
-                pass
+        if player.name == "Sulla":
+            #insert character logic
+            pass
 
         self.Handle(player)
         self.resetCount()

@@ -8,9 +8,9 @@ POLITICAL = 3
 
 
 class Card:
-    def __init__(self):
+    def __init__(self, name = ''):
         self.numeral = randint(1, 6)
-        
+        self.name = name
 
     def toJson(self):
         #convert card into json format

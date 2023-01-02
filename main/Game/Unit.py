@@ -26,6 +26,7 @@ class Legionary(Unit):
         super(Legionary, self).__init__(self, ap, avail)
         self.type = MAIN
         self.maxAp = 3
+        self.damage = 2
 
 class Celtic(Legionary):
     def __init__(self, ap=2, avail = False):
@@ -54,18 +55,12 @@ class Cavalry(Unit):
         super(Cavalry, self).__init__(self, ap, avail)
         self.type = MAIN
         self.maxAp = 3
+        self.damage = 3
 
 class Elephant(Cavalry):
     def __init__(self, ap=1, avail = False):
         name = "elephant"
         super(Elephant, self).__init__(self, ap, avail)
-        self.type = MAIN
-        self.maxAp = 3
-
-class Mounted_Archer(Unit):
-    def __init__(self, ap=1, avail = False):
-        name = "mounted_archer"
-        super(Mounted_Archer, self).__init__(self, ap, avail)
         self.type = MAIN
         self.maxAp = 3
 
@@ -75,6 +70,16 @@ class Archery(Unit):
         super(Archery, self).__init__(self, ap, avail)
         self.type = MAIN
         self.maxAp = 3
+        self.damage = 1
+
+
+class Mounted_Archer(Archery):
+    def __init__(self, ap=1, avail = False):
+        name = "mounted_archer"
+        super(Mounted_Archer, self).__init__(self, ap, avail)
+        self.type = MAIN
+        self.maxAp = 3
+
 
 class Velite(Unit):
     def __init__(self, ap=1, avail = False):

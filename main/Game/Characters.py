@@ -13,6 +13,8 @@ class Player:
         self.hand = []
         self.units = []
         self.name = ""
+
+        self.awaken = False
         
         #debuffs
         self.sieged = False
@@ -60,22 +62,29 @@ class Crassus(Player):
 
     name = "Crassus"
 
+
     def __init__(self, game, **kwargs):
         super(Crassus, self).__init__(game, **kwargs)
         self.handLimit = 5
 
 class Caesar(Player):
     
-    name = "Caesar" 
-
-
     def __init__(self, game, **kwargs):
         super(Caesar, self).__init__(game, **kwargs)
+        self.name = "Caesar" 
+        self.PoliticalLimit = 100
 
 class Pompeius(Player):
     
-    name = "Magnus" 
+    name = "Pompeius" 
 
+    def __init__(self, game, **kwargs):
+        super(Pompeius, self).__init__(game, **kwargs)
+
+class Octavius(Player):
+    
+    name = "Octavius" 
+    
     def __init__(self, game, **kwargs):
         super(Pompeius, self).__init__(game, **kwargs)
 
@@ -93,7 +102,11 @@ class Mithridates(Player):
 
     def __init__(self, game, **kwargs):
         super(Mithridates, self).__init__(game, **kwargs)
-
+        self.immune = False
+    def resetCount(self):
+        super(Mithridates, self).resetCount()
+        self.immune = False
+        
 class Surena(Player):
     
     name = "Surena" 

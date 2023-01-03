@@ -1,6 +1,8 @@
-import uuid, threading
+import uuid, Utils
 import flask, flask_socketio
 import Game
+
+ROOMNUMBER = 1
 
 #initialize flask server and socket units websocket
 #server deployed to -> https://roman-card-game.herokuapp.com/
@@ -22,7 +24,8 @@ class Room:
     
     def addClient(self, sid):
         #cannot add more than 2 players
-        if not self.occupied and len(self.clients) < 2:
+        print(len(self.clients))
+        if len(self.clients) < 2:
             self.occupied = True
             self.clients[sid] = None
         else:
@@ -80,17 +83,17 @@ class Room:
 
 #-----------------SERVER-----------------
 allRooms = {}
-freeRoom = []
-queue = [] #new players waiting for a room
+#new players waiting for a room
+#queue contains tuple (threading event, public:bool)
+queue = [] 
 generateID = lambda: str(uuid.uuid1())
 
 def liberateRoom(room):
     room.occupied = False #make room visible
-    freeRoom.append(room.id)
 
     if len(queue): #tell next player in queue that the room just got liberated
-        player = queue.pop(0)
-        player.set()
+        player, _ = queue.pop(0)
+        player.setInfo({"room":room})
 
 @server.route("/")
 def default():
@@ -137,38 +140,47 @@ def createRoom():
                 return room.id
         
         else: #no public room open, search for unoccupied room
-            if len(freeRoom):
-                room = freeRoom.pop()
+            for id, room in allRooms.items():
+                if not room.occupied:
+                    event = Utils.Event()
+                    room._eventCallback = event #prepare room and make it detectable to other public players
+                    room.occupied = True
+                    room.public = True
 
-                event = threading.Event()
-                room._eventCallback = event #prepare room and make it detectable to other public players
-                room.occupied = True
-                room.public = True
-
-                #wait till another user joins the empty room to return new room's id
-                event.wait()
-                return id #return id of room
+                    #wait till another user joins the empty room to return new room's id
+                    event.wait()
+                    return id #return id of room
             
             else: #no public room, no unoccupied room
-                if len(allRooms) >= 50:
-                    event = threading.Event()
-                    queue.append(event) #add to queue. when a room is liberated, join the room
+                if len(allRooms) >= ROOMNUMBER:
+                    event = Utils.Event()
+                    queue.append((event, True)) #add to queue. when a room is liberated, join the room
 
-                    event.wait() #an unoccupied room is now available
-                    room = freeRoom.pop()
+                    data = event.waitInfo() #an unoccupied room is now available
+                    room = data["room"]
+                    directJoin = data.get("directJoin", False)
 
-                    event = threading.Event()
+                    if directJoin:
+                        room._eventCallback.set()
+                        return room.id
+
+                    event = Utils.Event()
                     room = allRooms[id]
                     room._eventCallback = event #prepare room and make it detectable to other public players
                     room.public = True
                     room.occupied = True
+                    
+                    for player, public in queue:#look for second public player in queue
+                        if public:
+                            player.setInfo({"room":room, "directJoin":True})
+                            break
 
                     event.wait()
                     return room.id
 
                 else: #if room limit not exceeded, create new public room
                     id = generateID()
-                    event = threading.Event()
+                    event = Utils.Event()
                     allRooms[id] = Room(id, public=True, _eventCallback=event)
 
                     #wait till another user joins the empty room to return new room's id
@@ -176,25 +188,24 @@ def createRoom():
                     return id #return id of room
 
     else: #create private room
-        if len(freeRoom): #search for unoccupied room
-            room = freeRoom.pop()
-            room.occupied = True
-            return room.id
+        for id, room in allRooms.items(): #search for unoccupied room
+            if not room.occupied:
+                room.occupied = True
+                return room.id
 
         else:
-            if len(allRooms) >= 50:
-                event = threading.Event()
-                queue.append(event) #add to queue. when a room is liberated, join the room
+            if len(allRooms) >= ROOMNUMBER:
+                event = Utils.Event()
+                queue.append((event, False)) #add to queue. when a room is liberated, join the room
 
-                event.wait() #take the freed room
-                room = freeRoom.pop()
+                room = event.waitInfo()["room"] #take the freed room
 
                 room.public = False
                 return room.id
 
             else: #if room limit not exceeded, create new private room
                 id = generateID()
-                event = threading.Event()
+                event = Utils.Event()
                 allRooms[id] = Room(id, public=False)
 
                 return id

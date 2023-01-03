@@ -1,25 +1,28 @@
-import time
+import time, threading
 import socketio, requests
 
 def show(*args, **kwargs):
     print(args, kwargs)
 
 #SERVER = "https://roman-card-game.herokuapp.com/"
-SERVER = "http://172.29.3.131:5000"
-#SERVER = "http://192.168.1.6:5000"
-sio = socketio.Client()
-sio.connect(SERVER)
+#SERVER = "http://172.29.3.131:5000"
+SERVER = "http://192.168.1.8:5000"
 
-id = requests.get(f"{SERVER}/createRoom", data={"public":"false"}).text
-print(id)
+class Client(socketio.Client):
+    def __init__(self):
+        super(Client, self).__init__(self)
+        self.connect(SERVER)
 
-sio.emit(f"joinRoom", data={"id":id}, callback=lambda *args, **kwargs:show(args, kwargs))
-time.sleep(.5)
-requests.get(f"{SERVER}/clean")
+        self.id = requests.get(f"{SERVER}/createRoom", data={"public":"true"}).text
+        print(self.id)
 
-sio.emit(f"{id}/setCharacterChoice", data={"character":"Caius Julius Caesar"})
-time.sleep(.5)
+        self.emit(f"joinRoom", data={"id":self.id}, callback=lambda *args, **kwargs:show(args, kwargs))
+        threading.Timer(5, self.kill).start()
+    
+    def kill(self):
+        print("disconnecting")
+        self.disconnect()
 
-sio.emit(f"{id}/drawCard", data={"n":5}, callback=show)
-
-print("Rooms open: " + requests.get(f"{SERVER}/openRooms").text)
+clients = []
+for i in range(2):
+    clients.append(Client())

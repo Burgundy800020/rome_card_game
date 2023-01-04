@@ -16,6 +16,11 @@ class Player:
 
         self.awaken = False
         
+        #battle
+        self.main = -1
+        self.aux = -1
+        self.dp = 2
+
         #debuffs
         self.sieged = False
         self.panemed = False
@@ -27,7 +32,8 @@ class Player:
     
     def resetCount(self):
         #reset counters for item cards and strategy cards played during a turn
-        self.itemPlayed = self.PoliticalPlayed = 0
+        self.itemPlayed = self.PoliticalPlayed = self.dp = 2
+        self.main = self.aux = -1
     def unitsToJson(self):
         return [unit.toJson() for unit in self.units]
 
@@ -99,6 +105,7 @@ class Vercingetorix(Player):
 class Mithridates(Player):
     
     name = "Mithridates" 
+    
 
     def __init__(self, game, **kwargs):
         super(Mithridates, self).__init__(game, **kwargs)
@@ -113,6 +120,16 @@ class Surena(Player):
 
     def __init__(self, game, **kwargs):
         super(Surena, self).__init__(game, **kwargs)
+
+class Spartacus(Player):
+    
+    name = "Spartacus" 
+    revolted = False
+    def __init__(self, game, **kwargs):
+        super(Spartacus, self).__init__(game, **kwargs)
+    def resetCount(self):
+        super(Spartacus, self).resetCount()
+        self.revolted = False
 
 characterList = [Caesar, Vercingetorix, Pompeius, Crassus]
 nameList = [p.name for p in characterList]

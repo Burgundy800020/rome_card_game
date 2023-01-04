@@ -32,6 +32,11 @@ class GameManager:
         characterChoices = self.remRomans[:2]
         self.remRomans = self.remRomans[2:]
         return [character.name for character in characterChoices]
+
+    def showCard(self, player, card:c.Card, label):
+        json_card = card.toJson
+        self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.sid)
+        self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.opp.sid)
     
     #Basic card actions
     def drawCard(self, character:Characters.Player, n):
@@ -49,7 +54,8 @@ class GameManager:
         n = data["n"]
         n.sort(reverse=True)
         for i in n:
-            del self.hand[i] 
+            self.showCard(character, character.hand[i], "Discard")
+            del character.hand[i] 
         #update hand to both players
         self.updateHand(character)
         if next_event is not None:
@@ -61,9 +67,7 @@ class GameManager:
     
     def reveal(self, character:Characters.Player):
         card = choices(self.deck, weights=self.weights, k=1).pop()
-        json_card = card.toJson()
-        self.room.send("revealCard", {"card":json_card}, character.sid)
-        self.room.send("revealCard", {"card":json_card}, character.opp.sid)
+        self.showCard(character, card, "Reveal")
         return card.numeral
 
     def updateHand(self, player:Characters.Player):
@@ -97,9 +101,7 @@ class GameManager:
         self.room.send("playerHp", {"hp": character.hp}, character.sid)
         self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
         
-        if isinstance(character, Characters.Cicero) and len(character.opp.hand) > 0:
-            if self.reveal(character) % 3 == 0:
-                self.discardCard(character.opp, min(2, len(character.opp.hand)), "")
+        
 
     #basic unit actions
     def restore(self, player:Characters.Player, i, n):
@@ -415,6 +417,8 @@ class GameManager:
             self.preturn(player.opp)
         elif e == "urbanConstruction":
             self.urbanListen(player)
+        elif e == "battleDiscardDone":
+            self.defend(player)
 
     def reset(self, player:Characters.Player):
         for unit in player.units:
@@ -480,11 +484,27 @@ class GameManager:
                     
         self.Handle(player, "preTurnDone")
 
+    def creditorListen(self, data):
+        sid = flask.request.sid
+        player = self.room.clients[sid]
+        i = data["i"]
+        player.opp.hand.append(player.hand[i])
+        del player.hand[i]
+        self.updateHand(player)
+        self.updateHand(player.opp)
+        self.drawCard(player.opp, 1)
+        self.Handle(player.opp, 'drawPhaseDone')
 
     def drawphase(self, player:Characters.Player):
         if not player.sieged:
             if player.name == 'Octavius' and player.awaken:
                 self.drawCard(player, 3)
+            elif player.name == 'Crassus':
+                if len(player.opp.hand):
+                    self.room.send("creditorInput", {}, player.sid)
+                    return
+                self.drawCard(player, 1)
+                    
             else:
                 self.drawCard(player, 2)
         self.Handle(player, "drawPhaseDone")
@@ -493,13 +513,13 @@ class GameManager:
         sid = flask.request.sid
         character = self.room.clients[sid]
         #input -1 if player wishes to end playphase
-        n = data["n"]
-        if n >= 0:
-            card = character.hand[n]
-            del character.hand[n]
+        i = data["n"]
+        if i >= 0:
+            card = character.hand[i]
+            self.showCard(character, card, "Play")
+            del character.hand[i]
             #show opponent which card were played
-            self.room.send("opponentCard", {"n":len(character.hand)}, character.opp.sid)
-            self.room.send("opponentPlayCard", {"card":card.toJson()}, character.opp.sid)
+            self.updateHand(character)
             self.playCard(character, card)
         else:
             self.Handle(character, "playPhaseDone")
@@ -526,47 +546,164 @@ class GameManager:
         else:
             self.Handle(player, "discardPhaseDone")
 
-    def attack(self, player, main, aux=-1):
-        main_u = player.units[main]
-        base_damage = 0
+    def diplomatListen(self, data):
+        sid = flask.request.sid
+        player = self.room.clients[sid]
+        i = data["i"]
+        if i:
+            del player.opp.units[i]
+            self.updateUnits(player.opp)
+            self.Handle(player, "battlePhaseDone")
+        else:
+            self.attackDamage(player.opp)
+
+    def elephantListen(self, data):
+        sid = flask.request.sid
+        player = self.room.clients[sid]
+        i = data["i"]
+        if i:
+            del player.opp.units[i]
+            self.updateUnits(player.opp)        
+        self.attackDamage(player.opp)
+
+    def attackSuccess(self, player:Characters.Player):
+        main_u = player.units[player.main]
+        n = []
+        if isinstance(main_u, u.Archery):
+            self.dp -= 1
+        if player.name == 'Sulla':
+            for i in range(len(player.opp.units)):
+                if player.opp.units[i].ap <= player.dp:
+                    n.append(i)
+            self.room.send("diplomatInput", {"n":n}, player.sid)
+            return
+        elif isinstance(main_u, u.Elephant):
+            for i in range(len(player.opp.units)):
+                if player.opp.units[i].ap <= 1:
+                    n.append(i)
+            self.room.send("elephantInput", {"n":n}, player.sid)
+            return
+        elif isinstance(main_u, u.Celtic):
+            self.heal(player, 1)
+        self.attackDamage(player.opp)
+        
+    def attackDamage(self, player:Characters.Player):        
+        self.dealDamage(player, player.opp.dp)
+
+        if any([isinstance(unit, c.Elephant) for unit in player.units]) and isinstance(player.opp.units[player.opp.main], u.Archery):
+            for i in range(len(player.units)):
+                self.remove(player, i, 1)
+        
+        self.remove(player.opp, player.opp.main, 1)
+        if player.aux >= 0:
+            self.remove(player.opp, player.opp.main, 1)
+
+        elif isinstance(player, Characters.Cicero) and len(player.opp.hand) > 0:
+            if self.reveal(player) % 3 == 0:
+                self.discardCard(player.opp, min(2, len(player.opp.hand)), "battlePhaseDone")
+                return
+        self.Handle(player.opp, "battlePhaseDone")
+    
+    def defendListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        def_n = data['def']
+        n = data['n']
+        n.sort(reverse=True)
+        for i in n:
+            self.showCard(character, character.hand[i], "Defend")
+            del character.hand[i] 
+        self.updateHand(character)
+        if len(n) < def_n:
+            self.attackSuccess(character.opp)
+            return
+        self.Handle(character.opp, "battlePhaseDone")
+
+
+    def defend(self, player, def_n):
+        n = []
+        for i in range(len(player.hand)):
+            if player.hand[i].name == 'shield':
+                n.append(i)
+        self.room.send("defend", {"n" : n, "def" : def_n}, player.sid)
+    
+    def battleDiscardListen(self, data):
+        sid = flask.request.sid
+        character = self.room.clients[sid]
+        def_n = data['def']
+        n = data["n"]
+        n.sort(reverse=True)
+        for i in n:
+            del self.hand[i] 
+        self.updateHand(character)
+        self.defend(character, def_n)
+
+    def attack(self, player):
+        main_u = player.units[player.main]
         if player.name == 'Surena' and len(player.opp.hand) > len(player.hand):
-            base_damage += 1
+            player.dp += 1
 
         elif player.name == 'Caesar':
             if self.reveal(player) % 2 == 0:
-                base_damage += 1
+                player.dp += 1
+
+
+        elif player.name == 'Spartacus' and player.revolted:    
+            player.dp += 1
 
         if player.opp.name == 'Caesar' and len(player.units) > len(player.opp.units):
             self.drawCard(player.opp, 1)
 
         if isinstance(main_u, u.Archery):
             if isinstance(main_u, u.Mounted_Archer) and player.opp.hp >= 6:
-                base_damage += 1
+                player.dp += 1
+            self.attackSuccess(player)
+
+        else:
+            def_n = 1
+            dis_n = 0
+            if isinstance(main_u, u.Cavalry) and player.opp.hp >= 6:
+                player.dp += 1
+                
+            if player.aux >= 0:
+                aux_u = player.units[player.aux]
+                def_n += isinstance(aux_u, u.Velite)
+                dis_n += isinstance(aux_u, u.Slinger)
+            if isinstance(main_u, u.Gladiator):
+                def_n += 1
+            if isinstance(main_u, u.Phalanx):
+                dis_n += 1
+            if isinstance(main_u, u.Gladiator):
+                def_n += 1
+            if dis_n:
+                self.room.send("battleDiscard", {"dis" : dis_n, 'def' : def_n}, player.opp.sid)
+                return
+            self.defend(player.opp, def_n)
 
         self.Handle(player, "battlePhaseDone")
 
     def auxListen(self, data):
         sid = flask.request.sid
         character = self.room.clients[sid]
-        main = data["main"]
-        aux = data["aux"]
-        self.attack(character, main, aux=aux)
+        character.aux = data["i"]
+        self.attack(character)
                 
     #main, aux are the indices of the chosen units
     def battlephaseListen(self, data):
         sid = flask.request.sid
         character = self.room.clients[sid]
         #input -1 if player does not with to attack
-        main = data["main"]
+        main = data["i"]
         if main >= 0:
             #select auxiliary unit
+            character.main = main
             if isinstance(character.units[main], u.Legionary):
                 n = []
                 for index in range(len(character.units)):
                     if character.units[index].type == u.AUX and character.units[index].available:
                         n.append(index)
                 if len(n):
-                    self.room.send("auxInput", {"n": n, "main" : main}, character.sid)
+                    self.room.send("auxInput", {"n": n}, character.sid)
                 else:
                     self.attack(character, main)
             else:

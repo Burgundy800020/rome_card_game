@@ -75,9 +75,10 @@ class Crassus(Player):
 
 class Caesar(Player):
     
+    name = "Caesar"
+    
     def __init__(self, game, **kwargs):
         super(Caesar, self).__init__(game, **kwargs)
-        self.name = "Caesar" 
         self.PoliticalLimit = 100
 
 class Pompeius(Player):

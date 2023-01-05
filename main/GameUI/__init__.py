@@ -1,9 +1,27 @@
-from threading import Event
+import zipfile, io
+import numpy as np
 from PIL import Image
 from . import Card
+#import Card
+
+archive = zipfile.ZipFile("sources.zip", "r")
+
+def readImage(name:str, source=archive) -> np.array:
+    #fetch source archive for card image using class name
+    #return image in bytes format
+    try:data = io.BytesIO(source.read(f"{name}.png"))
+    except:data = io.BytesIO(source.read("Soldier.png"))
+    data.seek(0)
+    
+    #transform to numpy array
+    image = Image.open(data).convert("RGBA")
+    return np.flipud(np.array(image, dtype=np.uint8))
 
 def makeCharacterCard(character:str):
     return Card.CharacterCard(character)
+
+def getImage(character:str):
+    return readImage(character)
 
 class Game:
     def __init__(self, socketIO, id):

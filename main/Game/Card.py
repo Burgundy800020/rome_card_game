@@ -38,6 +38,8 @@ class Horse(Card):
         super(Horse, self).__init__()
         self.type = ITEM
 
+
+
 class Arrows(Card):
     def __init__(self):
         self.name = "arrows"

@@ -24,7 +24,6 @@ class Room:
     
     def addClient(self, sid):
         #cannot add more than 2 players
-        print(len(self.clients))
         if len(self.clients) < 2:
             self.occupied = True
             self.clients[sid] = None
@@ -71,14 +70,16 @@ class Room:
             playerlist[1].opp = playerlist[0]
 
             #notify both players when game is starting
-            for sid in self.clients.keys():
+            for sid, player in self.clients.items():
                 self.send("startGame", {}, sid=sid)
+                self.send("setCharacterName", {"player":player.name, "opponent":player.opp.name}, sid)
 
-            self.game.play()
+            self.game.preturn(list(self.clients.values())[0])
     
     def close(self):
         #remove all clients in present room by clearing client dictionary
         self.clients.clear()
+        self.game = Game.GameManager(self, socketIO)
         liberateRoom(self)
 
 #-----------------SERVER-----------------
@@ -89,6 +90,7 @@ queue = []
 generateID = lambda: str(uuid.uuid1())
 
 def liberateRoom(room):
+    room.public = False
     room.occupied = False #make room visible
 
     if len(queue): #tell next player in queue that the room just got liberated
@@ -102,32 +104,32 @@ def default():
         <center>Running Status : Normal</center>
         """
 
-"""@server.route("/createRoom")
-def createRoom():
-    #try to find a match for public room
-    if flask.request.form["public"] == "true":
-        for id, room in allRooms.items():
-            if room.public: #there exists an open public room
-                room.public = False #close public room as it is taken
-                room._eventCallback.set()
-                return room.id
-        else:
-            id = generateID()
-            event = threading.Event()
-            allRooms[id] = Room(id, public=True, _eventCallback=event)
+@server.route("/stats")
+def stats():
+    def generateRoomInfo():
+        html = """<table border=3px>
+            <tr>
+                <th><p>Room ID</p></th>
+                <th><p>Is Public</p></th>
+                <th><p>Is Occupied</p></th>
+            </tr>
+        """
+        for id, rooms in allRooms.items():
+            html += f"""
+            <tr>
+                <td><p>{id}</p></td>
+                <td><p>{rooms.public}</p></td>
+                <td><p>{rooms.occupied}</p></td>
+            </tr>"""
+        return html + r"\n</table>"
 
-            #wait till another user joins the empty room to return new room's id
-            event.wait()
-            return id #return id of room
-
-    else:
-        if len(allRooms) >= 50:return "FULL" #no more space for another room
-
-        #generate random string as room number, for example
-        #741f8bd1-13a6-11ed-86a8-b05adaee0887
-        id = generateID() 
-        allRooms[id] = Room(id, public=False)
-        return id"""
+    return f"""
+    <h1>Debugging Statistics</h1>
+    <p>Clients in queue:{len(queue)}</p>
+    <p>Room number limit: {ROOMNUMBER}</p>
+    <p>Rooms open: {len(allRooms)}</p>
+    {generateRoomInfo()}
+    """
 
 @server.route("/createRoom")
 def createRoom():
@@ -161,6 +163,7 @@ def createRoom():
                     directJoin = data.get("directJoin", False)
 
                     if directJoin:
+                        room.public = False
                         room._eventCallback.set()
                         return room.id
 

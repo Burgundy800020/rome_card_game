@@ -12,7 +12,6 @@ class Player:
         self.hp = 10
         self.hand = []
         self.units = []
-        self.name = ""
 
         self.awaken = False
         
@@ -53,6 +52,7 @@ class Marius(Player):
 class Sulla(Player):
 
     name = "Sulla"
+    hhhp = 0
 
     def __init__(self, game, **kwargs):
         super(Sulla, self).__init__(game, **kwargs)
@@ -132,5 +132,5 @@ class Spartacus(Player):
         super(Spartacus, self).resetCount()
         self.revolted = False
 
-characterList = [Caesar, Vercingetorix, Pompeius, Crassus]
+characterList = [Caesar, Vercingetorix, Pompeius, Crassus, Spartacus, Surena]
 nameList = [p.name for p in characterList]

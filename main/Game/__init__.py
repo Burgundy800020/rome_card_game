@@ -1,11 +1,13 @@
 from random import shuffle, choices
-import flask, flask_socketio
+import flask
 
-#import Card as c, Characters, Unit as u
-#import Card, Characters
-from . import Card as c
-from . import Characters
-from . import Unit as u
+if __package__ is None or __package__ == "":
+    import Card as c, Characters, Unit as u
+    import Card, Characters
+else:
+    from . import Card as c
+    from . import Characters
+    from . import Unit as u
 
 
 class GameManager:
@@ -43,7 +45,7 @@ class GameManager:
         #modify player's hand in backend
         for i in range(n):
             card = choices(self.deck, weights=self.weights, k=1).pop()()
-            self.hand.append(card)
+            character.hand.append(card)
         #update hand to both players
         self.updateHand(character)
 
@@ -72,8 +74,8 @@ class GameManager:
 
     def updateHand(self, player:Characters.Player):
         hand = player.handToJson()
-        self.room.send("playerCard", {"hand":hand}, player.sid)
-        self.room.send("opponentCard", {"n":len(hand)}, player.opp.sid)
+        self.room.send("setCardState", {"playerCards":hand}, player.sid)
+        self.room.send("setCardState", {"opponentCards":len(hand)}, player.opp.sid)
 
     #basic hp actions
     def heal(self, character:Characters.Player, n):
@@ -446,7 +448,7 @@ class GameManager:
     #-------------------------------------------------------------------------------------
 
     def preturn(self, player):
-        if player.name == "Caius Marius":
+        if player.name == "Marius":
             if len(player.hand) <= 2:
                 self.drawCard(player, 3)
                 self.heal(player, 1)         
@@ -524,8 +526,8 @@ class GameManager:
         else:
             self.Handle(character, "playPhaseDone")
 
-    def playphase(self, player):
-        if player.panemd:
+    def playphase(self, player:Characters.Player):
+        if player.panemed:
             self.Handle(player, "battlePhaseDone")
             return
 
@@ -721,13 +723,14 @@ class GameManager:
         else:
             self.Handle(player, "battlePhaseDone")
 
-    def postturn(self, player):
+    def postturn(self, player : Characters.Player):
         if player.name == "Sulla":
             #insert character logic
             pass
 
-        self.Handle(player)
-        self.resetCount()
+        self.Handle(player, "PostTurnDone")
+    
+    
 
 if __name__ == "__main__":
     g = GameManager()

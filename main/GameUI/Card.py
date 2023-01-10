@@ -5,22 +5,25 @@ else:
     from .fileControl import readDescription, readImage
 
 class Card:
-    def __init__(self):
+    def __init__(self, name = ""):
         self.numeral = randint(1, 6)
-        self.available = True
+        self.name = name
+        self.type = None
+        self.available = False
 
     def toJson(self):
         #convert card into json format
         return {
-            "type":self.type,
+            "name":self.name,
             "numeral":self.numeral,
-            "available":self.available}
+            "type":self.type
+            }
     
     def fromJson(self, data):
         #load card information from json data
-        self.type = data["type"]
+        self.name = data["name"]
         self.numeral = data["numeral"]
-        self.available = data["available"]
+        self.type = data["type"]
 
 class CharacterCard:
     def __init__(self, character:str):

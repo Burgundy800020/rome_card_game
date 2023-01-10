@@ -11,3 +11,10 @@ def makeCharacterCard(character:str):
 
 def getImage(character:str):
     return readImage(character)
+
+class Game:
+    def __init__(self):
+        self.hand = [] #player's hand of card
+    
+    def setHand(self, hand):
+        self.hand = [Card.Card().fromJson(card) for card in hand]

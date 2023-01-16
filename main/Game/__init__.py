@@ -431,10 +431,18 @@ class GameManager:
         
     #preturn abilities
     #-------------------------------------------------------------------------------------
+    def servileListen(self, data):
+        sid = flask.request.sid
+        character:Characters.Spartacus = self.room.clients[sid]
+        #input 1 if player wishes to skip main phase and increase damage by 1
+        i = data["i"]
+        if i == 1:
+            character.revolted = True
+        self.Handle(character, "preTurnDone")
 
     def tribalListen(self, data):
         sid = flask.request.sid
-        character = self.room.clients[sid]
+        character:Characters.Player= self.room.clients[sid]
         n = data["n"]
         if n == 1:
             cardNum = 0
@@ -479,11 +487,11 @@ class GameManager:
             if len(n):
                 self.room.send("tribalInput", {"n":n}, player.sid)
                 return
-                
-        elif player.name == "Spartacus":
-            pass
-            #insert character logic
-                    
+
+        if player.name == "Spartacus":
+            self.room.send("servileInput",{}, player.sid)
+            return
+    
         self.Handle(player, "preTurnDone")
 
     def creditorListen(self, data):
@@ -515,7 +523,7 @@ class GameManager:
         sid = flask.request.sid
         character = self.room.clients[sid]
         #input -1 if player wishes to end playphase
-        i = data["n"]
+        i = data["i"]
         if i >= 0:
             card = character.hand[i]
             self.showCard(character, card, "Play")
@@ -525,12 +533,14 @@ class GameManager:
             self.playCard(character, card)
         else:
             self.Handle(character, "playPhaseDone")
+            
 
     def playphase(self, player:Characters.Player):
         if player.panemed:
             self.Handle(player, "battlePhaseDone")
             return
-
+        
+            
         n = []
         #check playable cards
         for i in range(len(player.hand)):
@@ -647,7 +657,7 @@ class GameManager:
         self.updateHand(character)
         self.defend(character, def_n)
 
-    def attack(self, player):
+    def attack(self, player:Characters.Player):
         main_u = player.units[player.main]
         if player.name == 'Surena' and len(player.opp.hand) > len(player.hand):
             player.dp += 1

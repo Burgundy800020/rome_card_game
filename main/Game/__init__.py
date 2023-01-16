@@ -568,6 +568,13 @@ class GameManager:
             self.updateUnits(player.opp)        
         self.attackDamage(player.opp)
 
+    def attackFailure(self, player:Characters.Player):
+        self.remove(player, player.main, 1)
+        if(player.aux >= 0):
+            self.remove(player, player.aux, 1)
+        self.Handle(player.opp, "battlePhaseDone")
+        
+
     def attackSuccess(self, player:Characters.Player):
         main_u = player.units[player.main]
         n = []
@@ -597,8 +604,8 @@ class GameManager:
                 self.remove(player, i, 1)
         
         self.remove(player.opp, player.opp.main, 1)
-        if player.aux >= 0:
-            self.remove(player.opp, player.opp.main, 1)
+        if player.opp.aux >= 0:
+            self.remove(player.opp, player.opp.aux, 1)
 
         elif isinstance(player, Characters.Cicero) and len(player.opp.hand) > 0:
             if self.reveal(player) % 3 == 0:
@@ -618,8 +625,8 @@ class GameManager:
         self.updateHand(character)
         if len(n) < def_n:
             self.attackSuccess(character.opp)
-            return
-        self.Handle(character.opp, "battlePhaseDone")
+        else:
+            self.attackFailure(character.opp, "battlePhaseDone")
 
 
     def defend(self, player, def_n):

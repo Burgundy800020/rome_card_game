@@ -40,6 +40,19 @@ class GameManager:
         self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.sid)
         self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.opp.sid)
     
+    def showPhase(self, player, phase:str):
+        self.room.send("showPhase", {"phase" : phase}, player.sid)
+        self.room.send("showPhase", {"phase" : phase}, player.opp.sid)
+    
+    def showAttack(self, player, unit:int, i:int):
+        self.room.send("playerAttacking", {"unit" : unit, "i" : i}, player.sid)
+        self.room.send("opponentAttacking", {"unit" : unit, "i" : i}, player.opp.sid)
+
+    def showQuote(self, player, i:int):
+        self.room.send("playerQuote", {"i" : i}, player.sid)
+        self.room.send("opponentQuote", {"i" : i}, player.opp.sid)
+
+
     #Basic card actions
     def drawCard(self, character:Characters.Player, n):
         #modify player's hand in backend
@@ -456,6 +469,7 @@ class GameManager:
     #-------------------------------------------------------------------------------------
 
     def preturn(self, player):
+        self.startPhase(player, "Preturn")
         if player.name == "Marius":
             if len(player.hand) <= 2:
                 self.drawCard(player, 3)
@@ -506,6 +520,7 @@ class GameManager:
         self.Handle(player.opp, 'drawPhaseDone')
 
     def drawphase(self, player:Characters.Player):
+        self.startPhase(player, "Draw Phase")
         if not player.sieged:
             if player.name == 'Octavius' and player.awaken:
                 self.drawCard(player, 3)
@@ -526,9 +541,8 @@ class GameManager:
         i = data["i"]
         if i >= 0:
             card = character.hand[i]
-            self.showCard(character, card, "Play")
+            self.showCard(character, card, "Card Played")
             del character.hand[i]
-            #show opponent which card were played
             self.updateHand(character)
             self.playCard(character, card)
         else:
@@ -539,8 +553,7 @@ class GameManager:
         if player.panemed:
             self.Handle(player, "battlePhaseDone")
             return
-        
-            
+        self.startPhasep(player,"Play Phase")
         n = []
         #check playable cards
         for i in range(len(player.hand)):
@@ -553,6 +566,7 @@ class GameManager:
         
 
     def discardphase(self, player):
+        self.startPhase(player, "Discard Phase")
         if len(player.hand) > player.handLimit:
             self.discardCard(player, len(player.hand) - player.handLimit, "discardPhaseDone")
         else:
@@ -579,8 +593,10 @@ class GameManager:
         self.attackDamage(player.opp)
 
     def attackFailure(self, player:Characters.Player):
+        self.showAttack(player, player.main, 0)
         self.remove(player, player.main, 1)
         if(player.aux >= 0):
+            self.showAttack(player, player.aux, 0)
             self.remove(player, player.aux, 1)
         self.Handle(player.opp, "battlePhaseDone")
         
@@ -612,9 +628,11 @@ class GameManager:
         if any([isinstance(unit, c.Elephant) for unit in player.units]) and isinstance(player.opp.units[player.opp.main], u.Archery):
             for i in range(len(player.units)):
                 self.remove(player, i, 1)
-        
+
+        self.showAttack(player.opp, player.opp.main, 0)
         self.remove(player.opp, player.opp.main, 1)
         if player.opp.aux >= 0:
+            self.showAttack(player.opp, player.opp.aux, 0)
             self.remove(player.opp, player.opp.aux, 1)
 
         elif isinstance(player, Characters.Cicero) and len(player.opp.hand) > 0:
@@ -659,6 +677,7 @@ class GameManager:
 
     def attack(self, player:Characters.Player):
         main_u = player.units[player.main]
+        self.showAttack(player, player.main, 1)
         if player.name == 'Surena' and len(player.opp.hand) > len(player.hand):
             player.dp += 1
 
@@ -686,6 +705,7 @@ class GameManager:
                 
             if player.aux >= 0:
                 aux_u = player.units[player.aux]
+                self.showAttack(player, player.aux, 2)
                 def_n += isinstance(aux_u, u.Velite)
                 dis_n += isinstance(aux_u, u.Slinger)
             if isinstance(main_u, u.Gladiator):
@@ -731,6 +751,7 @@ class GameManager:
             self.Handle(character, "battlePhaseDone")
 
     def battlephase(self, player):
+        self.startPhase("Battle Phase")
         n = []
         for i in range(len(player.units)):
             if player.units[i].type == u.MAIN and player.units[i].available:
@@ -741,6 +762,7 @@ class GameManager:
             self.Handle(player, "battlePhaseDone")
 
     def postturn(self, player : Characters.Player):
+        self.startPhase(player ,"Postturn")
         if player.name == "Sulla":
             #insert character logic
             pass

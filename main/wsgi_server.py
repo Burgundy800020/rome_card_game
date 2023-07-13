@@ -2,7 +2,7 @@ import uuid, Utils
 import flask, flask_socketio
 import Game
 
-ROOMNUMBER = 1
+ROOMNUMBER = 100
 
 #initialize flask server and socket units websocket
 #server deployed to -> https://roman-card-game.herokuapp.com/

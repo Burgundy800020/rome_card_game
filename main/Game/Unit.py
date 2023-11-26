@@ -2,10 +2,15 @@
 MAIN = 0
 AUX = 1
 
+#play_event
+
 class Unit:
+    name = ""
+    maxAp = 0
     def __init__(self, ap, avail):
         self.ap = ap
         self.available = avail   #boolean
+        self.type = -1
     
     def toJson(self):
         #convert card into json format
@@ -22,52 +27,52 @@ class Unit:
 
 class Legionary(Unit):
     def __init__(self, ap=2, avail = False):
-        name = "legionary"
-        super(Legionary, self).__init__(self, ap, avail)
+        super(Legionary, self).__init__(ap, avail)
+        self.name = "legionary"
         self.type = MAIN
         self.maxAp = 3
         self.damage = 2
 
 class Celtic(Legionary):
     def __init__(self, ap=2, avail = False):
-        name = "celtic"
-        super(Celtic, self).__init__(self, ap, avail)
+        super(Celtic, self).__init__(ap, avail)
+        self.name = "celtic"
         self.type = MAIN
         self.maxAp = 3
 
 class Phalanx(Legionary):
     def __init__(self, ap=2, avail = False):
-        name = "phalanx"
-        super(Phalanx, self).__init__(self, ap, avail)
+        super(Phalanx, self).__init__(ap, avail)
+        self.name = "phalanx"
         self.type = MAIN
         self.maxAp = 3
 
 class Gladiator(Legionary):
     def __init__(self, ap=2, avail = False):
-        name = "gladiator"
-        super(Gladiator, self).__init__(self, ap, avail)
+        super(Gladiator, self).__init__(ap, avail)
+        self.name = "gladiator"
         self.type = MAIN
         self.maxAp = 3
 
 class Cavalry(Unit):
     def __init__(self, ap=1, avail = False):
-        name = "cavalry"
-        super(Cavalry, self).__init__(self, ap, avail)
+        super(Cavalry, self).__init__(ap, avail)
+        self.name = "cavalry"
         self.type = MAIN
         self.maxAp = 3
         self.damage = 3
 
 class Elephant(Cavalry):
     def __init__(self, ap=1, avail = False):
-        name = "elephant"
-        super(Elephant, self).__init__(self, ap, avail)
+        super(Elephant, self).__init__(ap, avail)
+        self.name = "elephant"
         self.type = MAIN
         self.maxAp = 3
 
 class Archery(Unit):
     def __init__(self, ap=1, avail = False):
-        name = "archery"
-        super(Archery, self).__init__(self, ap, avail)
+        super(Archery, self).__init__(ap, avail)
+        self.name = "archery"
         self.type = MAIN
         self.maxAp = 3
         self.damage = 1
@@ -75,27 +80,26 @@ class Archery(Unit):
 
 class Mounted_Archer(Archery):
     def __init__(self, ap=1, avail = False):
-        name = "mounted_archer"
-        super(Mounted_Archer, self).__init__(self, ap, avail)
+        super(Mounted_Archer, self).__init__(ap, avail)
+        self.name = "mounted_archer"
         self.type = MAIN
         self.maxAp = 3
 
 
 class Velite(Unit):
     def __init__(self, ap=1, avail = False):
-        name = "velite"
-        super(Velite, self).__init__(self, ap, avail)
+        super(Velite, self).__init__(ap, avail)
+        self.name = "velite"
         self.type = AUX
         self.maxAp = 2
 
 class Slinger(Unit):
     def __init__(self, ap=1, avail = False):
-        name = "slinger"
-        super(Slinger, self).__init__(self, ap, avail)
+        super(Slinger, self).__init__(ap, avail)
+        self.name = "slinger"
         self.type = AUX
         self.maxAp = 2
 
 
 if __name__ == "__main__":
-    u = Unit()
-    print(u.__dict__) 
+    pass

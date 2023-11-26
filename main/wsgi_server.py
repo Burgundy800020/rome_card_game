@@ -2,7 +2,7 @@ import uuid, Utils
 import flask, flask_socketio
 import Game
 
-ROOMNUMBER = 1
+ROOMNUMBER = 100
 
 #initialize flask server and socket units websocket
 #server deployed to -> https://roman-card-game.herokuapp.com/
@@ -21,6 +21,8 @@ class Room:
         self.game = Game.GameManager(self, socketIO)
 
         socketIO.on(f"{id}/setCharacterChoice")(self.setCharacterChoice)
+
+
     
     def addClient(self, sid):
         #cannot add more than 2 players
@@ -29,14 +31,13 @@ class Room:
             self.clients[sid] = None
         else:
             return "FULL"
-
         if len(self.clients) == 2:
 
             if not self.public:
                 #notify first client that a second one connected
                 #only in private mode
                 self.send("establishPrivateConnection", {}, list(self.clients.keys())[0])
-
+            
             for sid in self.clients.keys():
                 #send 2 character choices to each player
                 self.send("getCharacterChoices", {"characters":self.game.generateCharacters()}, sid)
@@ -63,7 +64,6 @@ class Room:
 
         #check if both characters are set
         if not None in self.clients.values():
-
             #set opponent parameter in Player object
             playerlist = list(self.clients.values())
             playerlist[0].opp = playerlist[1]
@@ -72,7 +72,10 @@ class Room:
             #notify both players when game is starting
             for sid, player in self.clients.items():
                 self.send("startGame", {}, sid=sid)
-                self.send("setCharacterName", {"player":player.name, "opponent":player.opp.name}, sid)
+                self.send("setCharacterName", {"player":player.name, "opponent":player.opp.name, "playerFull":player.full, "opponentFull":player.opp.full}, sid)
+
+            for player in playerlist:
+                self.game.drawCard(player, 4)
 
             self.game.preturn(list(self.clients.values())[0])
     
@@ -94,8 +97,8 @@ def liberateRoom(room):
     room.occupied = False #make room visible
 
     if len(queue): #tell next player in queue that the room just got liberated
-        player, _ = queue.pop(0)
-        player.setInfo({"room":room})
+        event, _ = queue.pop(0)
+        event.setInfo({"room":room})
 
 @server.route("/")
 def default():
@@ -252,4 +255,6 @@ def disconnect():
             break
 
 if __name__ == "__main__":
-    socketIO.run(server, host="0.0.0.0")
+    #socketIO.run(server, host="0.0.0.0")
+    socketIO.run(server)
+

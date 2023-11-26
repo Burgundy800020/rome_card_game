@@ -1,4 +1,4 @@
-from random import shuffle, choices
+from random import shuffle, choices, randint
 import flask
 
 if __package__ is None or __package__ == "":
@@ -9,20 +9,25 @@ else:
     from . import Characters
     from . import Unit as u
 
-
 class GameManager:
     def __init__(self, room, socketIO):
         self.room = room
         self.socketIO = socketIO
         self.remRomans = Characters.characterList.copy(); shuffle(self.remRomans)
-        self.deck = [c.Shield, c.Horse, c.Arrows]
-        self.weights = [1,1,1]
+        self.deck = [c.Shield, c.Horse, c.Arrows, c.Ration, c.Aquilifer, c.Legionary, c.Archery, c.Cavalry,
+                     c.Velite, c.Slinger,
+                     c.Camp, c.Reinforcements, c.Testudo, c.Barbarian_Invasion,c.Siege, c.Onager,
+                     c.Land_Redistribution, c.Veto, c.Urban_Construction, c.Panem_Et_Circenses, c.Senatus_Cousultum_Ultimum]
+        self.weights = [card.frq for card in self.deck]
         self.players = []
         self.currentPlayer = False
 
         #listen to channels
-        self.socketIO.on(f"{self.room.id}/discardCard")(self.discardCardListen)
-        self.socketIO.on(f"{self.room.id}/playphase")(self.playphaseListen)
+        self.socketIO.on(f"{self.room.id}/playListen")(self.playListen)
+        self.socketIO.on(f"{self.room.id}/deployListen")(self.deployListen)
+        self.socketIO.on(f"{self.room.id}/destroyListen")(self.destroyListen)
+        self.socketIO.on(f"{self.room.id}/chooseListen")(self.chooseListen)
+
 
     def addPlayer(self, character, sid=""):
         player = Characters.characterList[Characters.nameList.index(character)](self, sid=sid)
@@ -34,24 +39,31 @@ class GameManager:
         characterChoices = self.remRomans[:2]
         self.remRomans = self.remRomans[2:]
         return [character.name for character in characterChoices]
-
-    def showCard(self, player, card:c.Card, label):
-        json_card = card.toJson
-        self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.sid)
-        self.room.send("showCard", {"card":json_card, "player" : player.name, "label" : label}, player.opp.sid)
     
-    def showPhase(self, player, phase:str):
-        self.room.send("showPhase", {"phase" : phase}, player.sid)
-        self.room.send("showPhase", {"phase" : phase}, player.opp.sid)
+    def playInput(self, player:Characters.Player, n, event, choices = None):
+        player.play_event = event
+        player.choose_event = event
+        self.room.send("playInput", {"n": n, "event" : event, "choices" : choices}, player.sid)
+
+    def deployInput(self, player:Characters.Player, n, event, choices = None):
+        player.deploy_event = event
+        player.choose_event = event
+        self.room.send("deployInput", {"n": n, "event" : event, "choices" : choices}, player.sid)
     
-    def showAttack(self, player, unit:int, i:int):
-        self.room.send("playerAttacking", {"unit" : unit, "i" : i}, player.sid)
-        self.room.send("opponentAttacking", {"unit" : unit, "i" : i}, player.opp.sid)
+    def destroyInput(self, player:Characters.Player, n, event, choices = None):
+        player.destroy_event = event
+        player.choose_event = event
+        self.room.send("destroyInput", {"n": n, "event" : event, "choices" : choices}, player.sid)
 
-    def showQuote(self, player, i:int):
-        self.room.send("playerQuote", {"i" : i}, player.sid)
-        self.room.send("opponentQuote", {"i" : i}, player.opp.sid)
+    def addDialogue(self, text):
+        for i in (0, 1):
+            self.room.send("addDialogue", {"text":text}, self.players[i].sid)
 
+    def showQuote(self, player:Characters.Player, i):
+        self.addDialogue(f"{player.name} used ability <<{player.abilities[i]}>>")
+        text = f"{player.quotes[i][randint(0, len(player.quotes[i])-1)]}"
+        self.room.send("addQuote", {"playerQuote":text}, player.sid)
+        self.room.send("addQuote", {"opponentQuote":text}, player.opp.sid)
 
     #Basic card actions
     def drawCard(self, character:Characters.Player, n):
@@ -62,39 +74,40 @@ class GameManager:
         #update hand to both players
         self.updateHand(character)
 
-    def discardCardListen(self, data, next_event=None):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        #remove cards from player's hand
-        n = data["n"]
-        n.sort(reverse=True)
-        for i in n:
-            self.showCard(character, character.hand[i], "Discard")
-            del character.hand[i] 
-        #update hand to both players
+    def discardCardListen(self, character:Characters.Player, i):      
+        #self.showCard(character, character.hand[i], "Discard")
+        self.addDialogue(f"{character.name} discarded [{character.hand[i].name}]")
+        del character.hand[i] 
         self.updateHand(character)
-        if next_event is not None:
-            self.Handle(character, next_event)
-        
+        character.discard -= 1
+        if character.discard > 0:
+            self.discardCard(character)
+        else:
+            self.Handle(character, character.discard_event)
     
-    def discardCard(self, character:Characters.Player, n, next_event):
-        self.room.send("discardInput", {"n": n}, character.sid)
+    def discardCard(self, character:Characters.Player):
+        self.playInput(character, [i for i in range(len(character.hand))], Characters.DISCARD)
     
-    def reveal(self, character:Characters.Player):
-        card = choices(self.deck, weights=self.weights, k=1).pop()
-        self.showCard(character, card, "Reveal")
-        return card.numeral
+    def reveal(self, player:Characters.Player):
+        num = randint(1, 6)
+        self.addDialogue(f"{player.name} rolled {num}")
+        return num
 
     def updateHand(self, player:Characters.Player):
         hand = player.handToJson()
-        self.room.send("setCardState", {"playerCards":hand}, player.sid)
-        self.room.send("setCardState", {"opponentCards":len(hand)}, player.opp.sid)
+        self.room.send("updateHand", {"playerCards":hand}, player.sid)
+        self.room.send("updateHand", {"opponentCards":len(hand)}, player.opp.sid)
+
+    def updateStates(self, player:Characters.Player, state, on):
+        player.states[state] = on
+        self.room.send("updateStates", {"player":player.states}, player.sid)
+        self.room.send("updateStates", {"opponent":player.states}, player.opp.sid)
 
     #basic hp actions
     def heal(self, character:Characters.Player, n):
         character.hp = min(character.hp + n, 10)
-        self.room.send("playerHp", {"hp": character.hp}, character.sid)
-        self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
+        self.room.send("updateHp", {"playerHp": character.hp}, character.sid)
+        self.room.send("updateHp", {"opponentHp":character.hp}, character.opp.sid)
     
     #deal n damage to character
     #The damage is decisive if it results from a Legionary or Cavalry attack
@@ -113,194 +126,141 @@ class GameManager:
             #gameover
             pass
         #update hp to both players
-        self.room.send("playerHp", {"hp": character.hp}, character.sid)
-        self.room.send("opponentHp", {"hp":character.hp}, character.opp.sid)
+        self.room.send("updateHp", {"playerHp": character.hp}, character.sid)
+        self.room.send("updateHp", {"opponentHp":character.hp}, character.opp.sid)  
         
-        
-
     #basic unit actions
     def restore(self, player:Characters.Player, i, n):
-        unit = player.units[i]
-        player.unit.ap = min(unit.ap + n, unit.maxAp)
+        unit:u.Unit = player.units[i]
+        unit.ap = min(unit.ap + n, unit.maxAp)
         self.updateUnits(player)
 
     def remove(self, player:Characters.Player, i, n):
-        unit = player.units[i]
+        unit:u.Unit = player.units[i]
         if unit.ap > n:
             unit.ap -= n
         else:
-            del unit
+            del player.units[i]
         self.updateUnits(player)
 
     def updateUnits(self, player:Characters.Player):
         units = player.unitsToJson()
-        self.room.send("playerUnits", {"units": units}, player.sid)
-        self.room.send("opponentUnits", {"units" : units}, player.opp.sid)
+        self.room.send("updateUnits", {"playerUnits": units}, player.sid)
+        self.room.send("updateUnits", {"opponentUnits" : units}, player.opp.sid)
 
 #listen to playCard
 #--------------------------------------------------------------------------------------------        
-    def testudoListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
-        card = data["card"] #the military card that the opponent played
-        
-        if i >= 0:
-            #show played card
-            del character.hand[i]
-            self.updateHand(character)
-            self.Handle(character.opp, "drawPhaseDone")
-        else:
-            self.playMilitary(character.opp, c.Card(name = card))
     
-    def boosterListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
+    def boosterListen(self, character, i):
         self.restore(character, i, 1)
         self.Handle(character, "drawPhaseDone")
     
-    def aquiliferListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
+    def aquiliferListen(self, character, i):
         character.units[i].available = True
         self.updateUnits(character)
         self.Handle(character, "drawPhaseDone")
 
-    def barbarianListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
-        del character.opp.units[i]
-        self.updateUnits(character.opp)
-        self.Handle(character, "drawPhaseDone")
-
-    def campListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
-        character.units[i].available = False
-        self.restore(character, i, 1)
-        self.updateUnits(character)
-        self.Handle(character, "drawPhaseDone")
-        
-    def vetoListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        i = data["i"]
-        card = data["card"] #the military card that the opponent played
-        
-        if i >= 0:
-            #show played card
-            del character.hand[i]
-            self.updateHand(character)
-            self.Handle(character.opp, "drawPhaseDone")
-        else:
-            self.playPolitical(character.opp, c.Card(name = card))
-
-    def urbanListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
+    def urbanListen(self, character):
         self.heal(character, 3)
         self.Handle(character, "drawPhaseDone")
 
-    def senatusListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        n = data["n"]
-        #0 : discard hand. 1: lose 3 hp
-        if n == 0:
-            character.hand.clear()
+    def senatusListen(self, character:Characters.Player, i):
+        if i == 0:
+            character.units.clear()
+            self.addDialogue(f"{character.name} obeyed to the Senate's decree and handed over their legions")
             self.updateHand(character)
         else:
-            self.dealDamage(character, 3)
-        self.Handle(character, "drawPhaseDone")
+            self.addDialogue(f"{character.name} disobeyed to the Senate's decree and was declared enemy of the State")
+            self.updateStates(character, 'proscriptio', True)
+        self.Handle(character.opp, "drawPhaseDone")
 #-----------------------------------------------------------------------------
     def playMilitary(self, player:Characters.Player, card : c.Card):
+        player.resetCard()
         n = []
-        if card.name == "barbarian_invasion":
+        if isinstance(card, c.Barbarian_Invasion):
             for i in range(len(player.opp.units)):
                 if player.opp.units[i].ap == 1:
                     n.append(i)
-            self.room.send("barbarianInput", {"n": n}, player.sid)
+            self.destroyInput(player, n, Characters.BARBARIAN)
             return
 
-        elif card.name == "camp":
-            for i in range(len(player.opp.units)):
+        elif isinstance(card, c.Camp):
+            for i in range(len(player.units)):
                 n.append(i)
-            self.room.send("campInput", {"n": n}, player.sid)
+            self.deployInput(player, n, Characters.CAMP)
             return
 
-        elif card.name == "siege":
+        elif isinstance(card, c.Siege):
             if self.reveal(player) %3!=0:
-                player.opp.sieged=True
-                #show player sieged
-            
-        elif card.name == "onager":
+                self.updateStates(player.opp, 'sieged', True)
+                
+        elif isinstance(card, c.Onager):
             if self.reveal(player) %3!=0:
                 self.dealDamage(player.opp, 2)
             
-        elif card.name == "reinforcement":
+        elif isinstance(card, c.Reinforcements):
             self.drawCard(player, 2)
                 
         self.Handle(player, "drawPhaseDone")
 
     def playPolitical(self, player:Characters.Player, card:c.Card):
-        
-        if card.name == "senatus_consultum_ultimum":
-            self.room.send("senatusInput",{}, player.opp.sid)
+        player.resetCard()
+        if isinstance(card, c.Senatus_Cousultum_Ultimum):
+            self.destroyInput(player.opp, [], Characters.CONSULTUM, ['hand over legions', 'ignore'])
             return
 
-        elif card.name == "land_redistribution":
+        elif isinstance(card, c.Land_Redistribution):
             player.hand.clear()
             self.drawCard(player, len(player.opp.hand))
 
-        elif card.name ==  "panem_et_circenses":
+        elif isinstance(card, c.Panem_Et_Circenses):
             if self.reveal(player) %3!=0:
-                player.opp.panemed = True
-                #show player panemd
+                self.updateStates(player.opp, 'panem', True)
 
-        elif card.name == "urban_construction":
-            self.discardCard(player, 1, "urbanConstruction")
+        elif isinstance(card, c.Urban_Construction):
+            player.discard = 1
+            player.discard_event = "urbanConstruction"
+            self.discardCard(player)
             return     
 
         self.Handle(player, "drawPhaseDone")
         
     def playCard(self, player: Characters.Player, card: c.Card):
         if card.type == c.ITEM:
+            self.addDialogue(f"{player.name} played [{card.name}]")               
             player.itemPlayed += 1
             n = []
-            
-            if card.name == "ration":
-                self.heal(player, 2)
-            elif card.name == "shield":
-                for i in range(len(player.units)):
-                    if isinstance(player.units[i], u.Legionary):
-                        n.append(i)
-                self.room.send("boosterInput", {"n": n}, player.sid)
-            elif card.name == "arrow":
-                for i in range(len(player.units)):
-                    if isinstance(player.units[i], u.Archery):
-                        n.append(i)
-                self.room.send("boosterInput", {"n": n}, player.sid)
-            elif card.name == "horse":
-                for i in range(len(player.units)):
-                    if isinstance(player.units[i], u.Cavalry):
-                        n.append(i)
-                self.room.send("boosterInput", {"n": n}, player.sid)
-            elif card.name == "aquilifer":
+            if isinstance(card, c.Aquilifer):
                 for i in range(len(player.units)):
                     if not player.units[i].available:
                         n.append(i)
-                self.room.send("aquiliferInput", {"n": n}, player.sid)  
-
-        elif card.type == c.UNIT:
+                self.deployInput(player, n, Characters.AQUILIFER)
+                return
+            if isinstance(card, c.Ration):
+                self.heal(player, 2)
+                self.Handle(player, "drawPhaseDone")
+                return
+            elif isinstance(card, c.Shield):
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Legionary):
+                        n.append(i)
+            elif isinstance(card, c.Arrows):
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Archery):
+                        n.append(i)
+            elif isinstance(card, c.Horse):
+                for i in range(len(player.units)):
+                    if isinstance(player.units[i], u.Cavalry):
+                        n.append(i)
+            self.deployInput(player, n, Characters.BOOST)
             
-            if card.name == "legionary":
-                if player.name == "Marius":
+        elif card.type == c.UNIT:
+            unit = u.Legionary()
+            if isinstance(card, c.Legionary):
+                if isinstance(player, Characters.Marius):
+                    self.showQuote(player, 0)
                     unit = u.Legionary(ap = 3, avail=True)
-                elif player.name == "Spartacus":
+                elif isinstance(player, Characters.Spartacus):
                     unit = u.Gladiator()
                 elif player.name == "Vercingetorix":
                     unit = u.Celtic()
@@ -308,87 +268,90 @@ class GameManager:
                     unit = u.Phalanx()  
                 else:
                     unit = u.Legionary()
-            if card.name == "cavalry":
+            elif isinstance(card, c.Cavalry):
                 if player.name == "Hannibal":
                     unit = u.Elephant()
                 else:
                     unit = u.Cavalry()  
-            if card.name == "archery":
+            elif isinstance(card, c.Archery):
                 if player.name == "Surena":
                     unit = u.Mounted_Archer()
                 else:
                     unit = u.Archery()  
-            if card.name == "velite":
+            elif isinstance(card, c.Velite):
                 unit = u.Velite()
                 if isinstance(player, Characters.Marius):
+                    self.showQuote(player, 0)
                     unit.available = True
                     unit.ap = 2
-            if card.name == "slinger":
+            elif isinstance(card, c.Slinger):
                 unit = u.Slinger()
                 if isinstance(player, Characters.Marius):
+                    self.showQuote(player, 0)
                     unit.available = True
-                    unit.ap = 2                    
+                    unit.ap = 2     
+            self.addDialogue(f"{player.name} raised a new <{unit.name}> unit")               
             player.units.append(unit)
             self.updateUnits(player)
+            self.Handle(player, "drawPhaseDone")
 
         elif card.type == c.MILITARY:
+            self.addDialogue(f"{player.name} played [{card.name}]")               
+            player.military = card
             if player.name == 'Pompeius':
+                self.showQuote(player, 0)
                 self.drawCard(player, 1)
             n = []
             for i in range(len(player.opp.hand)):
                 if player.opp.hand[i].name=="testudo":
                     n.append(i)
-            if(len(n)):
-                self.room.sent("testudoInput", {"n" : n, "card" : card.name}, player.opp.sid)
-                return
-            self.playMilitary(player, card)       
-
+            
+            self.playInput(player.opp, n, Characters.TESTUDO, choices=['cancel'])
+            
         else:
+            self.addDialogue(f"{player.name} played [{card.name}]")               
             player.PoliticalPlayed += 1
+            player.political = card
             if player.name == 'Caesar':
-                #show quote
+                self.showQuote(player, 1)
                 self.drawCard(player, 1)
             
             elif player.name == 'Octavius' and player.awaken:
                 #show quote
                 self.drawCard(player, 1)
-
+            
             if isinstance(card, c.Senatus_Cousultum_Ultimum):
                 self.playPolitical(player, card)
                 return
+            n = []
             for i in range(len(player.opp.hand)):
                 if player.opp.hand[i].name=="veto":
                     n.append(i)
-            if(len(n)):
-                self.room.sent("vetoInput", {"n" : n, "card" : card.name}, player.opp.sid)
-                return
-            self.playPolitical(player, card)
+            self.playInput(player.opp, n, Characters.VETO, choices=['cancel'])
 
     def checkCardAvailable(self, player:Characters.Player, card:c.Card):
         #check available cards during play phase            
         if card.type == c.ITEM:
-
             if player.itemPlayed >= player.itemLimit:
                 return False
 
             elif isinstance(card, c.Shield):
-                return True if any([isinstance(unit, c.Legionary) for unit in player.units]) else False
+                return True if any([isinstance(unit, u.Legionary) for unit in player.units]) else False
             
             elif isinstance(card, c.Horse):
-                return True if any([isinstance(unit, c.Cavalry) for unit in player.units]) else False
+                return True if any([isinstance(unit, u.Cavalry) for unit in player.units]) else False
 
             elif isinstance(card, c.Arrows):
-                return True if any([isinstance(unit, c.Archery) for unit in player.units]) else False
+                return True if any([isinstance(unit, u.Archery) for unit in player.units]) else False
             
             elif isinstance(card, c.Ration):
                 return True
 
             elif isinstance(card, c.Aquilifer):
-                return True if len(player.units) else False
+                return True if any([not unit.available for unit in player.units]) else False
 
         elif card.type == c.UNIT:
             return False if len(player.units) >= 3 else True
-
     
         elif card.type == c.MILITARY:
 
@@ -400,22 +363,23 @@ class GameManager:
             
             elif isinstance(card, c.Barbarian_Invasion):
                 return True if any([unit.ap == 1 for unit in player.opp.units]) else False 
-
+            
             return True
 
         else: #remaining card type: political
-            if self.politicalPlayed >= self.politicalLimit:
+            if player.PoliticalPlayed >= player.PoliticalLimit:
+                return False
+            if player.states['proscriptio'] and (isinstance(card, c.Senatus_Cousultum_Ultimum) or not isinstance(player, Characters.Caesar)):
                 return False
 
             elif isinstance(card, c.Urban_Construction):
-                return True if len(self.hand) >= 2 else False
+                return True if len(player.hand) >= 2 else False
 
             elif isinstance(card, c.Veto):
                 return False
-
             return True
 
-    def Handle(self, player, e):
+    def Handle(self, player:Characters.Player, e):
         if e == "preTurnDone":
             self.drawphase(player)
         elif e == "drawPhaseDone":
@@ -425,6 +389,14 @@ class GameManager:
         elif e == "discardPhaseDone":
             self.battlephase(player)
         elif e == "battlePhaseDone":
+            a = player.main
+            b = player.aux
+            if a < b:
+                a, b = b, a
+            if(a >= 0):
+                self.remove(player, a, 1)
+            if(b >= 0):
+                self.remove(player, b, 1)
             self.postturn(player)
         elif e == "postTurnDone":
             self.reset(player)
@@ -432,8 +404,93 @@ class GameManager:
             self.preturn(player.opp)
         elif e == "urbanConstruction":
             self.urbanListen(player)
-        elif e == "battleDiscardDone":
+        elif e == "battle":
             self.defend(player)
+        
+    def playListen(self, data):
+        sid = flask.request.sid
+        character:Characters.Player = self.room.clients[sid]
+        event = character.play_event
+        character.resetEvent()
+        i = data["i"]
+        if event == Characters.PLAY: 
+            self.playphaseListen(character, i)
+            return
+        elif event == Characters.DISCARD:
+            self.discardCardListen(character, i)
+            return 
+        elif event == Characters.DEFEND:
+            self.defendListen(character, i)
+            return
+        elif event == Characters.TESTUDO or event == Characters.VETO:                
+            del character.hand[i]
+            if event == Characters.VETO:
+                self.addDialogue(f"{character.name} played [veto]")
+            else:
+                self.addDialogue(f"{character.name} played [testudo]")
+            self.updateHand(character)
+            self.Handle(character.opp, 'drawPhaseDone')
+
+    def deployListen(self, data):
+        sid = flask.request.sid
+        character:Characters.Player = self.room.clients[sid]
+        event = character.deploy_event
+        character.resetEvent()
+        i = data["i"]
+        if event == Characters.DEPLOY_MAIN: 
+            self.battlephaseListen(character, i)
+            return
+        elif event == Characters.DEPLOY_AUX:
+            self.auxListen(character, i)
+            return 
+        elif event == Characters.BOOST:
+            self.boosterListen(character, i)
+            return
+        elif event == Characters.AQUILIFER:
+            self.aquiliferListen(character, i)
+        elif event == Characters.CAMP:
+            character.units[i].available = False
+            self.boosterListen(character, i)
+
+    def destroyListen(self, data):
+        sid = flask.request.sid
+        character:Characters.Player = self.room.clients[sid]
+        event = character.destroy_event
+        i = data["i"]
+        character.resetEvent()
+        if event == Characters.BARBARIAN:
+            self.remove(character.opp, i, 1)
+            self.Handle(character, "drawPhaseDone")
+        
+        
+    def chooseListen(self, data):
+        sid = flask.request.sid
+        character:Characters.Player = self.room.clients[sid]
+        event = character.choose_event
+        i = data["i"]
+        character.resetEvent()
+        if event == Characters.PLAY:
+            self.Handle(character, "playPhaseDone")
+            return
+        elif event == Characters.DEPLOY_MAIN:
+            self.Handle(character, "battlePhaseDone")
+            return
+        elif event == Characters.DEPLOY_AUX:
+            self.attack(character)
+            return
+        elif event == Characters.DEFEND:
+            self.attackSuccess(character.opp)
+        elif event == Characters.TESTUDO:
+            self.playMilitary(character.opp, character.opp.military)
+        elif event == Characters.VETO:
+            self.playPolitical(character.opp, character.opp.political)
+        elif event == Characters.CONSULTUM:
+            self.senatusListen(character, i)
+        elif event == Characters.EXILE:
+            self.exileListen(character, i)
+        elif event == Characters.TRIBAL:
+            self.tribalListen(character, i)
+
 
     def reset(self, player:Characters.Player):
         for unit in player.units:
@@ -453,32 +510,36 @@ class GameManager:
             character.revolted = True
         self.Handle(character, "preTurnDone")
 
-    def tribalListen(self, data):
-        sid = flask.request.sid
-        character:Characters.Player= self.room.clients[sid]
-        n = data["n"]
-        if n == 1:
-            cardNum = 0
+    def tribalListen(self, character:Characters.Player, i):
+        if i == 1:
+            self.showQuote(character, 0)
+            self.heal(character, -1)
             for i in range(len(character.units)):
                 if isinstance(character.units[i], u.Celtic) or character.units[i].type == u.AUX:
-                    cardNum += 1
-                    self.remove(character, i ,1)
-            self.drawCard(character, cardNum)
+                    self.restore(character, i ,1)
         self.Handle(character, "preTurnDone")
         
+    def exileListen(self, player:Characters.Player, i):
+        if i == 0:
+            self.Handle(player, "preTurnDone")
+        else:
+            self.showQuote(player, 1)
+            self.drawCard(player, 3)
+            self.heal(player, 1)         
+            self.Handle(player, "postTurnDone")
     #-------------------------------------------------------------------------------------
-
-    def preturn(self, player):
-        self.startPhase(player, "Preturn")
-        if player.name == "Marius":
-            if len(player.hand) <= 2:
-                self.drawCard(player, 3)
-                self.heal(player, 1)         
-                self.Handle(player, "postTurnDone")
-                return
-
-        elif player.name == "Cicero":
-            healingHP=0
+    def preturn(self, player:Characters.Player):
+        self.addDialogue(f"{player.name}'s preparation phase")
+        if player.name == "Marius" and len(player.hand) <= 2:
+            self.destroyInput(player, [], Characters.EXILE, ["No", "Yes"])
+            return        
+        if player.name == "Vercingetorix" and any(isinstance(unit, u.Celtic) or unit.type == u.AUX for unit in player.units):   
+            self.destroyInput(player, [], Characters.TRIBAL, ["No", "Yes"])
+            return
+        """
+        elif isinstance(player, Characters.Cicero):
+            pass
+            healingHP = 0
             for i in range(len(player.units)):
                 if player.units[i].type == u.MAIN: 
                     if self.reveal(player) %3!=0:
@@ -486,14 +547,16 @@ class GameManager:
             if healingHP!=0:
                 self.heal(player.sid, healingHP)
             
-        elif player.name == "Octavius" and not player.awaken:
+        elif isinstance(player, Characters.Octavius) and not player.awaken:
+            pass
             if player.hp<=4:
                 self.drawCard(player,1)
                 self.heal(player, 1)
                 player.PoliticalLimit = 100
                 player.awaken = True
 
-        elif player.name == "Vercingetorix":
+        elif isinstance(player, Characters.Vercingetorix):
+            pass
             n = []
             for i in range(len(player.units)):
                 if isinstance(player.units[i], u.Celtic) or player.units[i].type == u.AUX:
@@ -502,10 +565,11 @@ class GameManager:
                 self.room.send("tribalInput", {"n":n}, player.sid)
                 return
 
-        if player.name == "Spartacus":
+        if isinstance(player, Characters.Spartacus):
+            pass
             self.room.send("servileInput",{}, player.sid)
             return
-    
+        """
         self.Handle(player, "preTurnDone")
 
     def creditorListen(self, data):
@@ -520,57 +584,55 @@ class GameManager:
         self.Handle(player.opp, 'drawPhaseDone')
 
     def drawphase(self, player:Characters.Player):
-        self.startPhase(player, "Draw Phase")
-        if not player.sieged:
-            if player.name == 'Octavius' and player.awaken:
-                self.drawCard(player, 3)
-            elif player.name == 'Crassus':
-                if len(player.opp.hand):
-                    self.room.send("creditorInput", {}, player.sid)
-                    return
-                self.drawCard(player, 1)
-                    
-            else:
-                self.drawCard(player, 2)
+        if player.states['sieged']:
+            self.updateStates(player, 'sieged', False)
+            self.Handle(player, "drawPhaseDone")
+            return
+        self.addDialogue(f"{player.name}'s draw phase")
+        
+        if player.name == 'Octavius' and player.awaken:
+            self.drawCard(player, 3)
+        elif player.name == 'Crassus##':
+            if len(player.opp.hand):
+                self.room.send("creditorInput", {}, player.sid)
+                return
+            self.drawCard(player, 1)
+        else:
+            self.drawCard(player, 2)
+        self.addDialogue(f"{player.name}'s play phase")
+
         self.Handle(player, "drawPhaseDone")
 
-    def playphaseListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        #input -1 if player wishes to end playphase
-        i = data["i"]
-        if i >= 0:
-            card = character.hand[i]
-            self.showCard(character, card, "Card Played")
-            del character.hand[i]
-            self.updateHand(character)
-            self.playCard(character, card)
-        else:
-            self.Handle(character, "playPhaseDone")
-            
+    def playphaseListen(self, character, i):
+        card = character.hand[i]
+        #self.showCard(character, card, "Card Played")
+        del character.hand[i]
+        self.updateHand(character)
+        self.playCard(character, card)
 
     def playphase(self, player:Characters.Player):
-        if player.panemed:
+        if player.states['panem']:
+            self.updateStates(player, 'panem', False)
             self.Handle(player, "battlePhaseDone")
             return
-        self.startPhasep(player,"Play Phase")
         n = []
         #check playable cards
         for i in range(len(player.hand)):
             if self.checkCardAvailable(player, player.hand[i]):
                 n.append(i)
         if len(n):
-            self.room.send("playInput", {"n": n}, player.sid)
-        else:
-            self.Handle(player, "playPhaseDone")
-        
+            self.playInput(player, n, Characters.PLAY, choices=["cancel"])
+            return
+        self.Handle(player, "playPhaseDone")
 
-    def discardphase(self, player):
-        self.startPhase(player, "Discard Phase")
-        if len(player.hand) > player.handLimit:
-            self.discardCard(player, len(player.hand) - player.handLimit, "discardPhaseDone")
-        else:
-            self.Handle(player, "discardPhaseDone")
+    def discardphase(self, player:Characters.Player):
+        if len(player.hand) - player.handLimit > 0:
+            self.addDialogue(f"{player.name}'s discard phase")
+            player.discard_event = "discardPhaseDone"
+            player.discard = len(player.hand) - player.handLimit
+            self.discardCard(player)
+            return
+        self.Handle(player, "discardPhaseDone")
 
     def diplomatListen(self, data):
         sid = flask.request.sid
@@ -591,186 +653,147 @@ class GameManager:
             del player.opp.units[i]
             self.updateUnits(player.opp)        
         self.attackDamage(player.opp)
-
-    def attackFailure(self, player:Characters.Player):
-        self.showAttack(player, player.main, 0)
-        self.remove(player, player.main, 1)
-        if(player.aux >= 0):
-            self.showAttack(player, player.aux, 0)
-            self.remove(player, player.aux, 1)
-        self.Handle(player.opp, "battlePhaseDone")
         
-
+    #player: player dealing damage
     def attackSuccess(self, player:Characters.Player):
         main_u = player.units[player.main]
         n = []
-        if isinstance(main_u, u.Archery):
-            self.dp -= 1
-        if player.name == 'Sulla':
+        if player.name == '#Sulla':
             for i in range(len(player.opp.units)):
                 if player.opp.units[i].ap <= player.dp:
                     n.append(i)
             self.room.send("diplomatInput", {"n":n}, player.sid)
             return
-        elif isinstance(main_u, u.Elephant):
+        if isinstance(main_u, u.Cavalry):
+            if isinstance(player, Characters.Pompeius):
+                self.showQuote(player, 1)
+                self.heal(player, 2)
+        if isinstance(main_u, u.Elephant):
             for i in range(len(player.opp.units)):
                 if player.opp.units[i].ap <= 1:
                     n.append(i)
             self.room.send("elephantInput", {"n":n}, player.sid)
             return
-        elif isinstance(main_u, u.Celtic):
+        if isinstance(main_u, u.Celtic):
+            self.showQuote(player, 1)
             self.heal(player, 1)
         self.attackDamage(player.opp)
         
+    #player: player receiving damage
     def attackDamage(self, player:Characters.Player):        
         self.dealDamage(player, player.opp.dp)
 
-        if any([isinstance(unit, c.Elephant) for unit in player.units]) and isinstance(player.opp.units[player.opp.main], u.Archery):
+        if any([isinstance(unit, u.Elephant) for unit in player.units]) and isinstance(player.opp.units[player.opp.main], u.Archery):
             for i in range(len(player.units)):
                 self.remove(player, i, 1)
-
-        self.showAttack(player.opp, player.opp.main, 0)
-        self.remove(player.opp, player.opp.main, 1)
-        if player.opp.aux >= 0:
-            self.showAttack(player.opp, player.opp.aux, 0)
-            self.remove(player.opp, player.opp.aux, 1)
-
-        elif isinstance(player, Characters.Cicero) and len(player.opp.hand) > 0:
-            if self.reveal(player) % 3 == 0:
-                self.discardCard(player.opp, min(2, len(player.opp.hand)), "battlePhaseDone")
-                return
+        
         self.Handle(player.opp, "battlePhaseDone")
     
-    def defendListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        def_n = data['def']
-        n = data['n']
-        n.sort(reverse=True)
-        for i in n:
-            self.showCard(character, character.hand[i], "Defend")
-            del character.hand[i] 
+    def defendListen(self, character, i):
+        self.addDialogue(f"{character.name} defended with [shield]")
+        del character.hand[i] 
         self.updateHand(character)
-        if len(n) < def_n:
-            self.attackSuccess(character.opp)
-        else:
-            self.attackFailure(character.opp, "battlePhaseDone")
+        character.df -= 1
+        if character.df == 0:
+            self.Handle(character.opp, "battlePhaseDone")
+            return
+        self.defend(character)
 
-
-    def defend(self, player, def_n):
+    def defend(self, player:Characters.Player):
         n = []
         for i in range(len(player.hand)):
-            if player.hand[i].name == 'shield':
+            if isinstance(player.hand[i], c.Shield):
                 n.append(i)
-        self.room.send("defend", {"n" : n, "def" : def_n}, player.sid)
-    
-    def battleDiscardListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        def_n = data['def']
-        n = data["n"]
-        n.sort(reverse=True)
-        for i in n:
-            del self.hand[i] 
-        self.updateHand(character)
-        self.defend(character, def_n)
-
+        self.playInput(player, n, Characters.DEFEND, choices=['cancel'])
+        
     def attack(self, player:Characters.Player):
         main_u = player.units[player.main]
-        self.showAttack(player, player.main, 1)
-        if player.name == 'Surena' and len(player.opp.hand) > len(player.hand):
+        player.dp = 2
+        self.addDialogue(f"{player.name} attacked with <{main_u.name}>")
+        if isinstance(player, Characters.Surena) and len(player.opp.hand) > len(player.hand):
             player.dp += 1
+            self.addDialogue(player, 0)
 
         elif player.name == 'Caesar':
             if self.reveal(player) % 2 == 0:
+                self.showQuote(player, 0)
                 player.dp += 1
 
-
-        elif player.name == 'Spartacus' and player.revolted:    
+        elif player.name == '#Spartacus' and player.revolted:    
             player.dp += 1
 
         if player.opp.name == 'Caesar' and len(player.units) > len(player.opp.units):
+            self.showQuote(player.opp, 0)
             self.drawCard(player.opp, 1)
 
         if isinstance(main_u, u.Archery):
+            player.dp -= 1
             if isinstance(main_u, u.Mounted_Archer) and player.opp.hp >= 6:
                 player.dp += 1
             self.attackSuccess(player)
-
-        else:
-            def_n = 1
-            dis_n = 0
-            if isinstance(main_u, u.Cavalry) and player.opp.hp >= 6:
-                player.dp += 1
-                
-            if player.aux >= 0:
-                aux_u = player.units[player.aux]
-                self.showAttack(player, player.aux, 2)
-                def_n += isinstance(aux_u, u.Velite)
-                dis_n += isinstance(aux_u, u.Slinger)
-            if isinstance(main_u, u.Gladiator):
-                def_n += 1
-            if isinstance(main_u, u.Phalanx):
-                dis_n += 1
-            if isinstance(main_u, u.Gladiator):
-                def_n += 1
-            if dis_n:
-                self.room.send("battleDiscard", {"dis" : dis_n, 'def' : def_n}, player.opp.sid)
-                return
-            self.defend(player.opp, def_n)
-
-        self.Handle(player, "battlePhaseDone")
-
-    def auxListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        character.aux = data["i"]
+            return
+        
+        def_n = 1
+        dis_n = 0
+        if isinstance(main_u, u.Cavalry) and player.opp.hp >= 6:
+            player.dp += 1
+            
+        if player.aux >= 0:
+            aux_u = player.units[player.aux]
+            self.addDialogue(f"{player.name} is assisted by their <{aux_u.name}> auxiliaries")
+            def_n += isinstance(aux_u, u.Velite)
+            dis_n += isinstance(aux_u, u.Slinger)
+        def_n +=  isinstance(main_u, u.Gladiator)
+        dis_n += isinstance(main_u, u.Phalanx)
+        player.opp.df = def_n
+        player.opp.discard = dis_n
+        if dis_n:
+            player.opp.discard_event = "battle"
+            self.discardCard(player.opp)
+            return
+        self.defend(player.opp)
+       
+    def auxListen(self, character, i):
+        character.aux = i
         self.attack(character)
                 
     #main, aux are the indices of the chosen units
-    def battlephaseListen(self, data):
-        sid = flask.request.sid
-        character = self.room.clients[sid]
-        #input -1 if player does not with to attack
-        main = data["i"]
-        if main >= 0:
-            #select auxiliary unit
-            character.main = main
-            if isinstance(character.units[main], u.Legionary):
-                n = []
-                for index in range(len(character.units)):
-                    if character.units[index].type == u.AUX and character.units[index].available:
-                        n.append(index)
-                if len(n):
-                    self.room.send("auxInput", {"n": n}, character.sid)
-                else:
-                    self.attack(character, main)
-            else:
-                self.attack(character, main)
-        else:
-            self.Handle(character, "battlePhaseDone")
+    def battlephaseListen(self, character:Characters.Player, i):
+        #select auxiliary unit
+        character.main = i
+        if isinstance(character.units[i], u.Legionary):
+            n = []
+            for index in range(len(character.units)):
+                if character.units[index].type == u.AUX and character.units[index].available:
+                    n.append(index)
+            if len(n):
+                self.deployInput(character, n, Characters.DEPLOY_AUX, ['cancel'])
+                return
+        self.attack(character)
 
-    def battlephase(self, player):
-        self.startPhase("Battle Phase")
+    def battlephase(self, player:Characters.Player):
+        self.addDialogue(f"{player.name}'s battle phase")
         n = []
         for i in range(len(player.units)):
             if player.units[i].type == u.MAIN and player.units[i].available:
                 n.append(i)
         if len(n):
-            self.room.send("battleInput", {"n": n}, player.sid)
-        else:
-            self.Handle(player, "battlePhaseDone")
+            self.deployInput(player, n, Characters.DEPLOY_MAIN, ['cancel'])
+            return
+        self.Handle(player, "battlePhaseDone")
 
     def postturn(self, player : Characters.Player):
-        self.startPhase(player ,"Postturn")
-        if player.name == "Sulla":
+        self.addDialogue(f"{player.name}'s end phase")
+        if isinstance(player, Characters.Sulla):
             #insert character logic
             pass
-
-        self.Handle(player, "PostTurnDone")
+        elif isinstance(player.opp, Characters.Cicero) and player.opp.accusation and len(player.hand) > 0:
+            if self.reveal(player) % 3 == 0:
+                player.opp.discard = len(player.opp.hand)
+                player.opp.discard_event = "battlePhaseDone"
+                self.discardCard(player.opp)
+                return
+        self.Handle(player, "postTurnDone")
     
-    
-
 if __name__ == "__main__":
     g = GameManager()
-    print([c.name for c in g.generateCharacters(Characters.ENEMY)])

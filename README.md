@@ -6,4 +6,4 @@ REVIVE THE ANCIENT ROME
 
 Play as ancient Roman figures such as Julius Caesar, Lucinius Crassus, and Pompeius Magnus - or, as one of Rome's greatest nemeses, including Hannibal Barca and Vercingetorix. 
 
-To learn how to play this game, see "rulebook.docx"
+To learn how to play this game, see "Rulebook.docx" . 

@@ -51,7 +51,7 @@ def send_data(data:dict):
     #wait for confirmation
     event = TimeoutEvent()
     sio.on(f"{sequence}/ack", lambda data: listenAcknowledge(event, data))
-    if event.wait_timeout(2):return
+    if event.wait_timeout(TIMEOUT):return
     else:send_data("message", data)
 
 def listenAcknowledge(event, data):

@@ -30,7 +30,7 @@ class Card:
         self.type = data["type"]
 
 class Shield(Card):
-    frq = 10
+    frq = 8
     def __init__(self):
         super(Shield, self).__init__()
         self.name = "shield"
@@ -54,7 +54,7 @@ class Arrows(Card):
 
 
 class Ration(Card):
-    frq = 4
+    frq = 3
     def __init__(self):
         super(Ration, self).__init__()
         self.name = "ration"
@@ -146,7 +146,6 @@ class Reinforcements(Card):
         self.name = "reinforcements"
         self.type = MILITARY
 
-
 class Senatus_Cousultum_Ultimum(Card):
     frq = 1
     def __init__(self):
@@ -183,7 +182,7 @@ class Panem_Et_Circenses(Card):
         self.type = POLITICAL
 
 class Urban_Construction(Card):
-    frq = 3
+    frq = 2
     def __init__(self):
         super(Urban_Construction, self).__init__()
         self.name = "urban_construction"

@@ -8,6 +8,7 @@ DISCARD = 2
 DEFEND = 3
 TESTUDO = 4
 VETO = 5
+CREDITOR = 101
 
 #deploy_event
 DEPLOY_MAIN = 11
@@ -134,12 +135,15 @@ class Crassus(Player):
 
     name = "Crassus"
     full = "Marcius Lucinius Crassus"
+    abilities = ["Immense Wealth", "Creditor"]
     quotes = [
             [
                 "Greed is but a word jealous man inflict upon the ambitious", 
-                "My tastes include both snails and oysters"
+                "Cocleas et ostreas amo (My tastes include both snails and oysters)"
             ],
-            ["The disadvantage of being a Patrician is that occasionally you are obliged to act like one"]
+            ["The disadvantage of being a Patrician is that occasionally you are obliged to act like one",
+             "Those who aim at great deeds must also suffer greatly."
+             ]
         ]
 
     def __init__(self, game, **kwargs):
@@ -153,9 +157,9 @@ class Caesar(Player):
     abilities = ["Tactician", "Dictator Perpetuo"]
     quotes = [
         [
-            "Alea jecta est!", "I love the name of honor more than I fear death"
+            "Alea jecta est! (The dice are cast)", "Divide et conquera (Divide and Conquer)"
         ],
-        ["Non sum rex, sed Caesar", "I am prepared to resort to anything for the sake of Rome"]
+        ["Non sum rex, sed Caesar (I am not king, but Caesar)", "I am prepared to resort to anything for the sake of Rome"]
     ]
 
     def __init__(self, game, **kwargs):
@@ -169,9 +173,9 @@ class Pompeius(Player):
     abilities = ["Great Conqueror", "Vir Triumphalis"]
     quotes = [
         [
-            "Stop quoting laws, we carry weapons", "To navigate is necessary, to live is not"
+            "Nolite de legem vocere nobis, qui arma feramus (Stop quoting laws to us who carry weapons)", "Navigare necesse est, vivere non est (To navigate is necessary, to live is not)"
         ],
-        ["I brought the whole world in my three triumphs"]
+        ["I brought the whole world in my three triumphs", "More people worship the rising than the setting sun"]
     ]
 
     def __init__(self, game, **kwargs):
@@ -192,10 +196,13 @@ class Vercingetorix(Player):
     abilities = ["Tribal Alliance", "Celtic Warrior"]
     quotes = [
         [
-            "Under the rising sun I see the peoples of Gaul united",
-            "I am a king, appointed by destiny"
+            "I see all the peoples of Gaul united",
+            "You want to fight? You want to live forever? Then I will lead you"
         ],
-        ["You want to fight? You want to live forever? Then I will lead you"]
+        [
+            "I see all the peoples of Gaul united",
+            "You want to fight? You want to live forever? Then I will lead you"
+        ]
     ]
 
     def __init__(self, game, **kwargs):
@@ -250,7 +257,7 @@ class Spartacus(Player):
         super(Spartacus, self).resetCount()
         self.revolted = False
 
-characterList = [Marius, Caesar, Vercingetorix, Pompeius]
+characterList = [Marius, Caesar, Vercingetorix, Pompeius, Crassus]
 #[Caesar, Vercingetorix, Pompeius, Crassus, Spartacus, Surena]
 nameList = [p.name for p in characterList]
 

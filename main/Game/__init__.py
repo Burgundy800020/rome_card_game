@@ -111,23 +111,23 @@ class GameManager:
     
     #deal n damage to character
     #The damage is decisive if it results from a Legionary or Cavalry attack
-    def dealDamage(self, character:Characters.Player, n, decisive=False):
+    def dealDamage(self, character:Characters.Player, n):
         if character.name == "Mithridates":
             if character.immune: 
                 n -= 1
             else:
                 character.immune = True
 
-        if character.hp > n:
-            character.hp -= n
-        elif not decisive:
-            character.hp = 1
-        else:
-            #gameover
-            pass
+        
+        character.hp = max(character.hp-n, 0)
+        
         #update hp to both players
         self.room.send("updateHp", {"playerHp": character.hp}, character.sid)
-        self.room.send("updateHp", {"opponentHp":character.hp}, character.opp.sid)  
+        self.room.send("updateHp", {"opponentHp":character.hp}, character.opp.sid) 
+
+        if not character.hp:
+            self.room.send("gameOver", {}, character.sid)
+            self.room.send("gameOver", {}, character.opp.sid)
         
     #basic unit actions
     def restore(self, player:Characters.Player, i, n):
@@ -168,7 +168,7 @@ class GameManager:
         if i == 0:
             character.units.clear()
             self.addDialogue(f"{character.name} obeyed to the Senate's decree and handed over their legions")
-            self.updateHand(character)
+            self.updateUnits(character)
         else:
             self.addDialogue(f"{character.name} disobeyed to the Senate's decree and was declared enemy of the State")
             self.updateStates(character, 'proscriptio', True)
@@ -305,9 +305,10 @@ class GameManager:
             for i in range(len(player.opp.hand)):
                 if player.opp.hand[i].name=="testudo":
                     n.append(i)
-            
-            self.playInput(player.opp, n, Characters.TESTUDO, choices=['cancel'])
-            
+            if len(n):
+                self.playInput(player.opp, n, Characters.TESTUDO, choices=['cancel'])
+                return
+            self.playMilitary(player, card)
         else:
             self.addDialogue(f"{player.name} played [{card.name}]")               
             player.PoliticalPlayed += 1
@@ -327,7 +328,10 @@ class GameManager:
             for i in range(len(player.opp.hand)):
                 if player.opp.hand[i].name=="veto":
                     n.append(i)
-            self.playInput(player.opp, n, Characters.VETO, choices=['cancel'])
+            if len(n):
+                self.playInput(player.opp, n, Characters.VETO, choices=['cancel'])
+                return
+            self.playPolitical(player, card)
 
     def checkCardAvailable(self, player:Characters.Player, card:c.Card):
         #check available cards during play phase            
@@ -430,6 +434,15 @@ class GameManager:
                 self.addDialogue(f"{character.name} played [testudo]")
             self.updateHand(character)
             self.Handle(character.opp, 'drawPhaseDone')
+        elif event == Characters.CREDITOR:
+            card = character.hand[i]
+            character.opp.hand.append(card)
+            del character.hand[i]
+            self.updateHand(character)
+            self.updateHand(character.opp)
+            self.Handle(character.opp, 'drawPhaseDone')
+            
+
 
     def deployListen(self, data):
         sid = flask.request.sid
@@ -592,11 +605,13 @@ class GameManager:
         
         if player.name == 'Octavius' and player.awaken:
             self.drawCard(player, 3)
-        elif player.name == 'Crassus##':
+        elif player.name == 'Crassus':
             if len(player.opp.hand):
-                self.room.send("creditorInput", {}, player.sid)
+                self.showQuote(player, 1)
+                self.drawCard(player, 1)
+                self.playInput(player.opp, [i for i in range(len(player.opp.hand))], Characters.CREDITOR)
                 return
-            self.drawCard(player, 1)
+            
         else:
             self.drawCard(player, 2)
         self.addDialogue(f"{player.name}'s play phase")
@@ -626,6 +641,8 @@ class GameManager:
         self.Handle(player, "playPhaseDone")
 
     def discardphase(self, player:Characters.Player):
+        if isinstance(player, Characters.Crassus) and len(player.hand) >= 5:
+            self.showQuote(player, 0)
         if len(player.hand) - player.handLimit > 0:
             self.addDialogue(f"{player.name}'s discard phase")
             player.discard_event = "discardPhaseDone"

@@ -1,5 +1,6 @@
 import threading
 
+
 class Event(threading.Event):
     """
     Create and release events similarly to threading.Event, but with the ability to transfer information as a dictionary.

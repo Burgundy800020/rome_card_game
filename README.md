@@ -20,7 +20,6 @@ Rome: Republic Legacy is an online card game blending role-playing, turn-based s
 ![Diagram](example/Media/caesar_vs_verc.png)
 
 
-
 ---
 
 ## Installation
@@ -38,13 +37,6 @@ Rome: Republic Legacy is an online card game blending role-playing, turn-based s
    cd main
    python wsgi_server.py
    ```
-4. **(Optional) Try the example client/server:**
-   ```bash
-   cd example
-   python server.py
-   # In another terminal:
-   python client.py
-   ```
 
 ---
 
@@ -52,7 +44,7 @@ Rome: Republic Legacy is an online card game blending role-playing, turn-based s
 - **Rulebook**: See [Rulebook.docx](./Rulebook.docx) for detailed rules and gameplay instructions.
 - **Quick Start**:
   1. Start the server as above.
-  2. Connect two clients (or two browser tabs) to the server.
+  2. Connect two clients to the server.
   3. Choose your character and begin playing cards according to the prompts.
 
 ---
@@ -77,6 +69,3 @@ Contributions are welcome! To contribute:
 For major changes, please open an issue first to discuss what you would like to change.
 
 ---
-
-## License
-No license file is currently specified for this project. If you wish to use or contribute to this project, please contact the maintainer for guidance.

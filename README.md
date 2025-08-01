@@ -18,6 +18,7 @@ Rome: Republic Legacy is an online card game blending role-playing, turn-based s
 - UI and card assets are located in `main/GameUI/assets/sources.zip` and `UI.zip`.
 - Game snips 
 ![Diagram](example/Media/caesar_vs_verc.png)
+- [Watch the demo on YouTube](https://youtu.be/A2nODfNM6Kk?si=6t75-n24slFVN0me)
 
 
 ---
